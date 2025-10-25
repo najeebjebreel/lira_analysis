@@ -1,1 +1,1 @@
-# Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions []
+# Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions 
