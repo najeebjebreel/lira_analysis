@@ -1,1 +1,1 @@
-# Revisiting the Likelihood-Ratio Membership Inference Attack: Realistic Training, Attacker Assumptions, and Reproducibility
+# Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions ()
