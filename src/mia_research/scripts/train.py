@@ -14,13 +14,10 @@ from pathlib import Path
 from datetime import datetime
 import torch
 
-# Add the project root to the Python path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from mia_research.utils.utils import setup_logger, set_seed, save_config, parse_overrides, recursive_update
-from mia_research.utils.data_utils import load_dataset, TransformSubset, create_data_loaders
-from mia_research.utils.model_utils import get_model
-from mia_research.utils.train_utils import train_model
+from mia_research.data.data_utils import load_dataset, TransformSubset, create_data_loaders
+from mia_research.models.model_utils import get_model
+from mia_research.training.train_utils import train_model
 
 def setup_experiment(config):
     """

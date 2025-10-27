@@ -11,10 +11,6 @@ import yaml
 import argparse
 from pathlib import Path
 
-
-# Add the project root to the Python path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from mia_research.utils.utils import setup_logger, set_seed, save_config, parse_overrides, recursive_update
 from mia_research.attacks.lira import LiRA
 
