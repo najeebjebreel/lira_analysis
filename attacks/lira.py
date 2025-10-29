@@ -13,7 +13,6 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 import scipy.stats
-from sklearn.metrics import roc_curve, auc, precision_score
 # Font compatibility for PDFs
 import matplotlib
 matplotlib.rcParams['pdf.fonttype'] = 42
@@ -21,6 +20,7 @@ matplotlib.rcParams['ps.fonttype'] = 42
 
 from utils.data_utils import load_dataset_for_mia_inference
 from utils.utils import stable_softmax, stable_logsumexp, compute_cross_entropy_loss
+from analysis_results.metrics import compute_roc_metrics, compute_tpr_at_fpr, compute_precision
 
 class LiRA:
     """
@@ -716,8 +716,10 @@ class LiRA:
         """
         Compute ROC curve metrics.
 
+        Note: Attack scores have "lower = more likely member" semantics, so we negate them.
+
         Args:
-            score: Attack scores (higher = more likely member)
+            score: Attack scores (lower = more likely member)
             truth: Ground truth membership labels (boolean)
 
         Returns:
@@ -728,9 +730,9 @@ class LiRA:
                 - acc: Maximum accuracy
                 - thresholds: Decision thresholds
         """
-        fpr, tpr, thresholds = roc_curve(truth, -score)
-        acc = np.max(1 - (fpr + (1 - tpr)) / 2)
-        return fpr, tpr, auc(fpr, tpr), acc, thresholds
+        # Negate scores because attacks return "lower = member" but metrics expects "higher = member"
+        fpr, tpr, thresholds, auc_score, accuracy = compute_roc_metrics(-score, truth)
+        return fpr, tpr, auc_score, accuracy, thresholds
 
     # --- attack definitions ---
     def generate_ours(self, keep, scores, check_keep, check_scores, fix_variance=False):
