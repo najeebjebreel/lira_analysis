@@ -25,6 +25,7 @@ This repository provides a production-quality, reproducible implementation of th
 - [Attack Variants](#attack-variants)
 - [Evaluation Modes](#evaluation-modes)
 - [Results and Visualization](#results-and-visualization)
+- [Output Files Reference](#output-files-reference)
 - [Advanced Usage](#advanced-usage)
 - [Citation](#citation)
 - [Contributing](#contributing)
@@ -418,6 +419,29 @@ The `analysis_results/` directory contains Jupyter notebooks for deeper analysis
 - `plot_benchmark+distribution.ipynb`: Compare attacks and visualize score distributions
 - `agreement.ipynb`: Analyze agreement between attack variants
 - `post_analysis.ipynb`: Custom post-hoc analysis
+
+---
+
+## Output Files Reference
+
+For complete documentation of all output files, data formats, and loading examples, see **[OUTPUTS.md](OUTPUTS.md)**.
+
+This comprehensive guide covers:
+- **All output file formats** (logits, scores, metrics, labels)
+- **Data shapes and types** for numpy arrays and CSVs
+- **Score file semantics** (likelihood ratios, membership scores)
+- **Leave-one-out outputs** (attack scores for all variants)
+- **Loading examples** with code snippets
+- **Per-sample vulnerability analysis**
+- **Storage considerations** and cleanup tips
+- **Troubleshooting** common issues
+
+**Quick references:**
+- Logits: `model_i/logits/logits.npy` - Shape [N, 1, A, C]
+- Scores: `model_i/scores/scores.npy` - Shape [N]
+- Attack scores (LOO): `*_scores_leave_one_out.npy` - Shape [M, N]
+- Ground truth: `membership_labels.npy` - Shape [M, N]
+- Metrics: `attack_results_*.csv`
 
 ---
 

@@ -46,15 +46,40 @@ This directory contains Jupyter notebooks and scripts for analyzing LiRA attack 
 ---
 
 #### `post_analysis.ipynb`
-**Purpose**: Custom post-hoc analysis template
+**Purpose**: Advanced post-hoc analysis with two-threshold modes and per-sample vulnerability
 
 **What it does**:
-- Template for custom analyses
-- Load experiment results and run additional experiments
-- Compute custom metrics
-- Generate custom visualizations
+- **Two-threshold evaluation modes:**
+  - **Target mode**: Threshold computed from target model's own ROC curve
+  - **Shadow mode**: Threshold = median of other shadow models' target thresholds (more realistic)
+- **Per-model metrics:** Computes confusion matrices (TP/FP/TN/FN) for each model and threshold
+- **Precision at multiple priors:** Evaluates precision assuming different membership priors (1%, 10%, 50%)
+- **Per-sample vulnerability analysis:**
+  - Computes TP/FP/TN/FN for each sample across all leave-one-out models
+  - Ranks samples by vulnerability (high TP, low FP = reliably detected when member)
+  - Identifies highly vulnerable samples (FP=0, TP>0)
+- **Visualization:**
+  - Grid of most vulnerable samples with TP/FP annotations
+  - Customizable sample visualization for image datasets
+- **LaTeX table generation:**
+  - Creates publication-ready tables comparing benchmarks
+  - Includes reduction factors (×N) vs baseline
+  - Formatted for academic papers
 
-**When to use**: For exploratory analysis beyond standard metrics
+**Outputs generated:**
+- `per_model_metrics_two_modes.csv`: Detailed per-model metrics
+- `summary_statistics_two_modes.csv`: Aggregated statistics with mean ± std
+- `samples_vulnerability_ranked_online_shadow_0p001pct.csv`: All samples ranked by vulnerability
+- `samples_highly_vulnerable_online_shadow_0p001pct.csv`: Subset of highly vulnerable samples
+- `top20_vulnerable_online_shadow_0p001pct.png`: Grid visualization of top 20 vulnerable samples
+- LaTeX tables (printed to output, ready to copy into paper)
+
+**When to use**:
+- For paper submissions requiring detailed metrics
+- To understand which samples are most vulnerable to membership inference
+- To compare attack performance across different configurations
+- To evaluate precision under realistic prior assumptions
+- To generate publication-ready figures and tables
 
 ---
 
