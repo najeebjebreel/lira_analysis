@@ -110,11 +110,11 @@ lira_analysis/
 
 ## Datasets & Models
 
-| Dataset              | Type    | Classes  | Samples | Models                    |
-| -------------------- | ------- | -------- | ------- | ------------------------- |
-| CIFAR-10 / CIFAR-100 | Image   | 10 / 100 | 60,000  | ResNet-18, WideResNet, TL |
-| GTSRB                | Image   | 43       | ~51,000 | ResNet-18, TL             |
-| Purchase-100         | Tabular | 100      | 197,324 | FCN                       |
+| Dataset              | Type    | Classes  | Samples | Models                                      |
+| -------------------- | ------- | -------- | ------- | --------------------------------------------|
+| CIFAR-10 / CIFAR-100 | Image   | 10 / 100 | 60,000  | ResNet-18, WideResNet, EfficientNet-V2 (TL) |
+| GTSRB                | Image   | 43       | ~51,000 | ResNet-18, TL                               |
+| Purchase-100         | Tabular | 100      | 197,324 | FCN                                         |
 
 ---
 
