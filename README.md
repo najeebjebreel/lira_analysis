@@ -11,7 +11,6 @@ This repository provides a reproducible implementation of our paper "Revisiting 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Usage](#usage)
