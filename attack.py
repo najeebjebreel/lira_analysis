@@ -15,8 +15,11 @@ from pathlib import Path
 # Add the project root to the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from mia_research.utils.utils import setup_logger, set_seed, save_config, parse_overrides, recursive_update
-from mia_research.attacks.lira import LiRA
+from utils.utils import (
+    setup_logger, set_seed, save_config, parse_overrides,
+    recursive_update, validate_config
+)
+from attacks.lira import LiRA
 
     
 def main():
@@ -37,7 +40,17 @@ def main():
     # Apply overrides
     overrides = parse_overrides(args.override)
     recursive_update(config, overrides)
-    
+
+    # Validate configuration
+    required_keys = [
+        'experiment.checkpoint_dir',
+        'attack.method'
+    ]
+    try:
+        validate_config(config, required_keys)
+    except ValueError as e:
+        print(f"Configuration validation failed: {e}")
+        sys.exit(1)
 
     # Create experiment directory
     experiment_dir = config.get('experiment', {}).get('checkpoint_dir', 'none')

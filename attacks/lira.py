@@ -19,12 +19,39 @@ import matplotlib
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
-from mia_research.utils.data_utils import load_dataset_for_mia_inference
+from utils.data_utils import load_dataset_for_mia_inference
+from utils.utils import stable_softmax, stable_logsumexp, compute_cross_entropy_loss
 
 class LiRA:
     """
-    LiRA pipeline: inference, scoring, and plotting.
-    Enhanced with Google-style spatial augmentations.
+    Likelihood Ratio Attack (LiRA) for membership inference.
+
+    This class implements the LiRA membership inference attack as described in
+    "Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions".
+
+    The attack works by:
+    1. Training multiple shadow models on different subsets of data
+    2. Computing logits for all samples using each shadow model
+    3. Computing membership scores based on likelihood ratios
+    4. Evaluating attack performance using ROC curves and metrics
+
+    The implementation supports:
+    - Online and offline LiRA variants
+    - Fixed and adaptive variance estimation
+    - Multiple evaluation modes (single target, leave-one-out)
+    - Spatial augmentation for improved robustness
+    - Multiple target FPR thresholds for precision/recall analysis
+
+    Attributes:
+        logger: Logger instance for tracking progress
+        config: Configuration dictionary with experiment settings
+        experiment_dir: Directory containing shadow models and results
+        full_dataset: Complete dataset for inference
+        labels: Ground truth labels for all samples
+        device: Torch device (CPU or CUDA)
+        model: Neural network model architecture
+        num_shadow_models: Number of shadow models to use
+        keep_indices: Boolean matrix indicating training membership
     """
     def __init__(self, config, logger):
         self.logger = logger
@@ -93,7 +120,25 @@ class LiRA:
 
     def get_model_logits(self, data_loader=None):
         """
-        Run inference under configured augmentations, return logits [N, A, C].
+        Generate model logits with optional data augmentation.
+
+        This method runs inference on the dataset with configurable augmentations:
+        - Original images (no augmentation)
+        - Horizontal flip (if enabled)
+        - Spatial shifts in a grid pattern (if spatial_shift > 0)
+        - Combinations of spatial shifts and horizontal flips
+
+        The augmentations improve attack robustness by averaging predictions
+        across multiple views of each sample.
+
+        Args:
+            data_loader: DataLoader to use for inference. If None, uses self.data_loader.
+
+        Returns:
+            torch.Tensor: Logits with shape [N, A, C] where:
+                - N = number of samples
+                - A = number of augmentations per sample
+                - C = number of classes
         """
         if data_loader is None:
             data_loader = self.data_loader
@@ -155,7 +200,19 @@ class LiRA:
 
     def generate_logits(self):
         """
-        Inference for each shadow model; save logits under model_i/logits/logits.npy
+        Generate and save logits for all shadow models.
+
+        For each shadow model, this method:
+        1. Loads the trained model checkpoint
+        2. Runs inference on the full dataset with augmentations
+        3. Saves logits to model_i/logits/logits.npy with shape [N, 1, A, C]
+
+        The logits are used in subsequent steps to compute membership scores.
+        If logits already exist and overwrite_logits=False in config, skips that model.
+
+        Raises:
+            FileNotFoundError: If a model checkpoint is not found
+            Exception: If there's an error loading or running a model
         """
         if self.target_model == 'best':
             target_model_prefix = 'best_model.pth'
@@ -201,13 +258,24 @@ class LiRA:
         
     def compute_scores(self):
         """
-        For each shadow model i:
-        - load logits from model_i/logits/logits.npy ([N,1,A,C] or [N,A,C])
-        - compute softmax over classes
-        - compute y_true = average true‐class probability over all augs
-        - compute y_wrong = average of remaining probability mass over all augs
-        - score = log(y_true) - log(y_wrong)
-        - save score array (shape [N]) to model_i/scores/scores.npy
+        Compute membership scores from logits for all shadow models.
+
+        For each shadow model:
+        1. Load logits from model_i/logits/logits.npy with shape [N, 1, A, C]
+        2. Apply numerically stable softmax to convert logits to probabilities
+        3. Extract true-class probability: y_true (averaged over augmentations)
+        4. Compute wrong-class probability: y_wrong (sum of other classes, averaged)
+        5. Compute membership score: log(y_true) - log(y_wrong)
+        6. Save scores to model_i/scores/scores.npy with shape [N]
+
+        Higher scores indicate higher confidence that a sample was in the training set.
+        The log probability ratio provides a well-calibrated membership signal.
+
+        If scores already exist and overwrite_scores=False in config, skips that model.
+
+        Raises:
+            FileNotFoundError: If logits file is not found
+            Exception: If there's an error loading or processing logits
         """
 
         for i in range(self.num_shadow_models):
@@ -239,11 +307,8 @@ class LiRA:
                 self.logger.error(f"Error loading logits for model_{i}: {e}")
                 continue        
 
-            ## Be exceptionally careful.
-            ## Numerically stable everything, as described in the paper.
-            predictions = opredictions - np.max(opredictions, axis=3, keepdims=True)
-            predictions = np.array(np.exp(predictions), dtype=np.float64)
-            predictions = predictions/np.sum(predictions,axis=3,keepdims=True)
+            ## Use scipy's numerically stable softmax
+            predictions = stable_softmax(opredictions, axis=3).astype(np.float64)
 
             COUNT = predictions.shape[0]
             #  x num_examples x num_augmentations x logits
@@ -265,6 +330,15 @@ class LiRA:
     def plot(self, ntest=1, metric='auc'):
         """
         Main plotting function that handles different evaluation modes.
+
+        Args:
+            ntest: Number of shadow models to use as test/target models (for single mode)
+            metric: Metric to display in plot legend ('auc' or 'acc')
+
+        The function supports three evaluation modes (configured in attack.evaluation_mode):
+        - 'single': Use last ntest models as targets, rest as training
+        - 'leave_one_out': Each shadow model serves as target once
+        - 'both': Run both single and leave-one-out evaluation
         """
         attack_cfg = self.config.get('attack', {})
         evaluation_mode = attack_cfg.get('evaluation_mode', 'single')
@@ -281,7 +355,23 @@ class LiRA:
 
     def _plot_single_target(self, ntest=1, metric='auc'):
         """
-        Original single target evaluation mode.
+        Evaluate attack performance using single target model(s).
+
+        This method:
+        1. Uses the last ntest shadow models as target models
+        2. Uses the remaining shadow models to compute attack statistics
+        3. Runs all 5 attack variants (online, online+fixed_var, offline, offline+fixed_var, global)
+        4. Generates ROC curves and computes metrics at target FPRs
+        5. Saves results to CSV and PDF files
+
+        Args:
+            ntest: Number of models to use as targets (typically 1)
+            metric: Metric to show in plot legend ('auc' or 'acc')
+
+        Outputs:
+            - roc_curve_single.pdf: ROC curve plot
+            - attack_results_single.csv: Metrics table
+            - train_test_stats.csv: Training/test loss and accuracy statistics
         """
         self.logger.info(f"Running single target evaluation with ntest={ntest}")
         
@@ -402,8 +492,27 @@ class LiRA:
 
     def _plot_leave_one_out(self, metric='auc'):
         """
-        Leave-one-out evaluation mode where each shadow model is used as target.
-        Computes likelihood ratios for ALL attack variants and saves them efficiently.
+        Evaluate attack performance using leave-one-out cross-validation.
+
+        In this mode, each shadow model serves as a target model once, with all other
+        shadow models used to compute attack statistics. This provides more robust
+        estimates of attack performance with uncertainty quantification.
+
+        The method:
+        1. Iterates through all shadow models as targets
+        2. For each target, runs all 5 attack variants
+        3. Computes metrics (AUC, accuracy, TPR@FPR) for each target
+        4. Aggregates results across targets (mean ± std)
+        5. Saves membership labels, attack scores, and threshold information
+
+        Args:
+            metric: Metric to use for evaluation ('auc' or 'acc')
+
+        Outputs:
+            - attack_results_leave_one_out_summary.csv: Aggregated metrics across targets
+            - membership_labels.npy: Ground truth membership labels [M, N]
+            - {attack_type}_scores_leave_one_out.npy: Attack scores for each variant [M, N]
+            - threshold_info_leave_one_out.csv: Per-target threshold information
         """
         self.logger.info("Running leave-one-out evaluation")
         
@@ -604,12 +713,46 @@ class LiRA:
 
     # --- helper to compute ROC metrics ---
     def sweep(self, score, truth):
+        """
+        Compute ROC curve metrics.
+
+        Args:
+            score: Attack scores (higher = more likely member)
+            truth: Ground truth membership labels (boolean)
+
+        Returns:
+            tuple: (fpr, tpr, auc, acc, thresholds) where:
+                - fpr: False positive rates
+                - tpr: True positive rates
+                - auc: Area under the ROC curve
+                - acc: Maximum accuracy
+                - thresholds: Decision thresholds
+        """
         fpr, tpr, thresholds = roc_curve(truth, -score)
         acc = np.max(1 - (fpr + (1 - tpr)) / 2)
         return fpr, tpr, auc(fpr, tpr), acc, thresholds
 
     # --- attack definitions ---
     def generate_ours(self, keep, scores, check_keep, check_scores, fix_variance=False):
+        """
+        LiRA online attack using both in-distribution and out-of-distribution statistics.
+
+        This is the main LiRA attack that uses:
+        - In-distribution: Statistics from models where sample was in training set
+        - Out-of-distribution: Statistics from models where sample was not in training set
+
+        Args:
+            keep: Boolean array indicating training membership for training models [M_train, N]
+            scores: Membership scores from training models [M_train, N, A]
+            check_keep: Boolean array for target model(s) [M_target, N]
+            check_scores: Scores from target model(s) [M_target, N, A]
+            fix_variance: If True, use global variance; if False, use per-sample variance
+
+        Returns:
+            tuple: (predictions, answers) where:
+                - predictions: Attack scores (lower = more likely member)
+                - answers: Ground truth labels
+        """
         N = scores.shape[1]
         dat_in  = [scores[keep[:,j], j]   for j in range(N)]
         dat_out = [scores[~keep[:,j], j]  for j in range(N)]
@@ -637,6 +780,24 @@ class LiRA:
         return preds, ans
 
     def generate_ours_offline(self, keep, scores, check_keep, check_scores, fix_variance=False):
+        """
+        LiRA offline attack using only out-of-distribution statistics.
+
+        This variant assumes the attacker only knows the distribution of scores for
+        non-members (more realistic threat model).
+
+        Args:
+            keep: Boolean array indicating training membership for training models [M_train, N]
+            scores: Membership scores from training models [M_train, N, A]
+            check_keep: Boolean array for target model(s) [M_target, N]
+            check_scores: Scores from target model(s) [M_target, N, A]
+            fix_variance: If True, use global variance; if False, use per-sample variance
+
+        Returns:
+            tuple: (predictions, answers) where:
+                - predictions: Log probabilities (lower = more likely member)
+                - answers: Ground truth labels
+        """
         N = scores.shape[1]
         dat_out = [scores[~keep[:,j], j] for j in range(N)]
         out_size = min(map(len, dat_out))
@@ -656,6 +817,23 @@ class LiRA:
         return preds, ans
 
     def generate_global(self, keep, scores, check_keep, check_scores):
+        """
+        Global threshold baseline attack.
+
+        This simple baseline uses a global threshold on the raw membership scores
+        without considering shadow model statistics.
+
+        Args:
+            keep: Boolean array indicating training membership (unused in this variant)
+            scores: Membership scores from training models (unused in this variant)
+            check_keep: Boolean array for target model(s) [M_target, N]
+            check_scores: Scores from target model(s) [M_target, N, A]
+
+        Returns:
+            tuple: (predictions, answers) where:
+                - predictions: Negative mean scores (lower = more likely member)
+                - answers: Ground truth labels
+        """
         preds, ans = [], []
         for mask, sc in zip(check_keep, check_scores):
             preds.extend((-sc).mean(1))
@@ -692,16 +870,11 @@ class LiRA:
             original_logits = logits[:, 0, :]  # [N,C] - only the original inputs
 
             # --- 2) compute per‐sample cross‐entropy loss on original inputs ---
-            # CE = logsumexp - logit_true
             N, C = original_logits.shape
             labels = self.labels[:N]
 
-            # stable log-sum-exp
-            mx    = np.max(original_logits, axis=1, keepdims=True)            # [N,1]
-            lse   = mx + np.log(np.exp(original_logits - mx).sum(axis=1, keepdims=True))  # [N,1]
-
-            # Cross-entropy loss: logsumexp - logit_true
-            losses = lse[:,0] - original_logits[np.arange(N), labels]         # [N]
+            # Use stable cross-entropy computation
+            losses = compute_cross_entropy_loss(original_logits, labels)
 
             # --- 3) accuracy calculation on original inputs ---
             preds = original_logits.argmax(axis=1)
