@@ -9,6 +9,7 @@ import logging
 import numpy as np
 import torch
 import random
+from scipy.special import softmax, logsumexp
 
 def setup_logger(name, log_file, level=logging.INFO):
     """
@@ -217,6 +218,13 @@ def parse_overrides(override_list):
     return overrides
 
 def recursive_update(d, u):
+    """
+    Recursively update nested dictionary d with values from u.
+
+    Args:
+        d: Dictionary to update
+        u: Dictionary with updates
+    """
     for k, v in u.items():
         if isinstance(v, dict) and isinstance(d.get(k), dict):
             recursive_update(d[k], v)
@@ -224,6 +232,141 @@ def recursive_update(d, u):
             continue  # Skip overwrite to preserve meaningful value
         else:
             d[k] = v
+
+
+def cleanup_gpu_memory():
+    """
+    Clean up GPU memory by clearing CUDA cache and running garbage collection.
+    This helps prevent out-of-memory errors in long-running experiments.
+    """
+    import gc
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+
+
+def load_checkpoint_safe(checkpoint_path, model, device=None, logger=None):
+    """
+    Safely load a model checkpoint with fallback for different formats.
+
+    Args:
+        checkpoint_path: Path to the checkpoint file
+        model: PyTorch model to load weights into
+        device: Device to map the checkpoint to
+        logger: Optional logger for messages
+
+    Returns:
+        tuple: (model, checkpoint_dict) where checkpoint_dict contains
+               additional info like epoch, optimizer state, etc.
+    """
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+
+        # Handle different checkpoint formats
+        if 'state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['state_dict'])
+        elif 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            # Assume the checkpoint is just the state dict
+            model.load_state_dict(checkpoint)
+            checkpoint = {'state_dict': checkpoint}
+
+        if logger:
+            logger.info(f"Successfully loaded checkpoint from {checkpoint_path}")
+
+        return model, checkpoint
+
+    except Exception as e:
+        if logger:
+            logger.error(f"Error loading checkpoint from {checkpoint_path}: {e}")
+        raise
+
+
+def validate_config(config, required_keys=None, logger=None):
+    """
+    Validate configuration dictionary has required keys and reasonable values.
+
+    Args:
+        config: Configuration dictionary to validate
+        required_keys: List of required key paths (e.g., ['dataset.name', 'training.epochs'])
+        logger: Optional logger for validation messages
+
+    Returns:
+        bool: True if valid, raises ValueError otherwise
+    """
+    if required_keys is None:
+        required_keys = ['dataset.name']
+
+    for key_path in required_keys:
+        keys = key_path.split('.')
+        current = config
+        for key in keys:
+            if not isinstance(current, dict) or key not in current:
+                msg = f"Missing required config key: {key_path}"
+                if logger:
+                    logger.error(msg)
+                raise ValueError(msg)
+            current = current[key]
+
+    if logger:
+        logger.info("Configuration validation passed")
+
+    return True
+
+
+def stable_softmax(logits, axis=-1):
+    """
+    Compute numerically stable softmax using scipy.
+
+    Args:
+        logits: Input logits (numpy array)
+        axis: Axis along which to compute softmax
+
+    Returns:
+        Softmax probabilities
+    """
+    return softmax(logits, axis=axis)
+
+
+def stable_logsumexp(logits, axis=-1, keepdims=False):
+    """
+    Compute numerically stable log-sum-exp using scipy.
+
+    Args:
+        logits: Input logits (numpy array)
+        axis: Axis along which to compute logsumexp
+        keepdims: Whether to keep dimensions
+
+    Returns:
+        Log-sum-exp result
+    """
+    return logsumexp(logits, axis=axis, keepdims=keepdims)
+
+
+def compute_cross_entropy_loss(logits, labels):
+    """
+    Compute cross-entropy loss with numerical stability.
+
+    Args:
+        logits: Model logits, shape (N, C) where N=samples, C=classes
+        labels: True labels, shape (N,)
+
+    Returns:
+        Per-sample cross-entropy losses, shape (N,)
+    """
+    N = logits.shape[0]
+
+    # Stable log-sum-exp
+    lse = stable_logsumexp(logits, axis=1, keepdims=False)
+
+    # Extract true class logits
+    true_class_logits = logits[np.arange(N), labels]
+
+    # Cross-entropy: log-sum-exp - true_class_logit
+    losses = lse - true_class_logits
+
+    return losses
 
 
 

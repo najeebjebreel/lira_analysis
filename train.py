@@ -17,10 +17,13 @@ import torch
 # Add the project root to the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from mia_research.utils.utils import setup_logger, set_seed, save_config, parse_overrides, recursive_update
-from mia_research.utils.data_utils import load_dataset, TransformSubset, create_data_loaders
-from mia_research.utils.model_utils import get_model
-from mia_research.utils.train_utils import train_model
+from utils.utils import (
+    setup_logger, set_seed, save_config, parse_overrides,
+    recursive_update, cleanup_gpu_memory, validate_config
+)
+from utils.data_utils import load_dataset, TransformSubset, create_data_loaders
+from utils.model_utils import get_model
+from utils.train_utils import train_model
 
 def setup_experiment(config):
     """
@@ -107,9 +110,7 @@ def train_target_model(config, train_dataset, test_dataset, train_dataset_eval, 
     del train_loader
     del test_loader
     del train_eval_loader
-    torch.cuda.empty_cache()
-    import gc
-    gc.collect()
+    cleanup_gpu_memory()
     
     return model
     
@@ -135,7 +136,21 @@ def main():
     # Apply overrides
     overrides = parse_overrides(args.override)
     recursive_update(config, overrides)
-    
+
+    # Validate configuration
+    required_keys = [
+        'dataset.name',
+        'training.num_shadow_models',
+        'training.epochs',
+        'training.batch_size',
+        'model.architecture'
+    ]
+    try:
+        validate_config(config, required_keys)
+    except ValueError as e:
+        print(f"Configuration validation failed: {e}")
+        sys.exit(1)
+
     # Set up experiment
     experiment_dir, logger, device = setup_experiment(config)
     config.get('experiment', {}).update({'checkpoint_dir': experiment_dir})
@@ -177,9 +192,7 @@ def main():
         del shadow_train_dataset
         del shadow_test_dataset
         del shadow_train_dataset_eval
-        torch.cuda.empty_cache()
-        import gc
-        gc.collect()
+        cleanup_gpu_memory()
     
     logger.info("All shadow models training completed successfully")
 
