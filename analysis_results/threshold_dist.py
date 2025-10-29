@@ -1,88 +1,101 @@
-# --- Headless-safe backend ---
-import matplotlib
-matplotlib.use("Agg")
+"""
+Threshold distribution analysis script.
 
+This script creates box plots showing threshold distributions across
+leave-one-out target models for the LiRA attack.
+
+Usage:
+    python threshold_dist.py --experiment_dir PATH_TO_EXPERIMENT [--output OUTPUT_PATH]
+"""
+
+import argparse
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from pathlib import Path
+import matplotlib.pyplot as plt
 
-# ------------------ Okabe–Ito palette (colorblind-safe) ------------------
-OI_BLUE   = "#0072B2"
-OI_ORANGE = "#E69F00"
-OI_VERMIL = "#D55E00"
-OI_GREY   = "#888888"
+# Import from local modules
+from analysis_utils import load_threshold_info, get_experiment_info
+from visualization import COLORS, setup_paper_style
+from metrics import compute_median_and_rmad
 
-# ------------------ Styling ------------------
-def _style_for_papers():
-    plt.rcParams.update({
-        "figure.dpi": 300, "savefig.dpi": 300,
-        "font.size": 9, "axes.labelsize": 9, "axes.titlesize": 9,
-        "xtick.labelsize": 8, "ytick.labelsize": 8,
-        "axes.spines.top": False, "axes.spines.right": False,
-        "pdf.fonttype": 42, "ps.fonttype": 42,  # vector-friendly fonts
-        # subtle boxplot defaults
-        "boxplot.flierprops.marker": "o",
-        "boxplot.flierprops.markersize": 2.0,
-        "boxplot.flierprops.markerfacecolor": OI_GREY,
-        "boxplot.flierprops.markeredgecolor": OI_GREY,
-        "boxplot.medianprops.color": OI_VERMIL,
-        "boxplot.medianprops.linewidth": 1.2,
-        "boxplot.whiskerprops.linewidth": 0.9,
-        "boxplot.capprops.linewidth": 0.9,
-    })
 
-# ------------------ Data loading ------------------
-def _load_thresholds(csv_path, target_fpr, attack_contains="online"):
-    df = pd.read_csv(csv_path)
-    df["target_fpr"] = pd.to_numeric(df["target_fpr"], errors="coerce")
-    m_attack = df["attack"].astype(str).str.lower().str.contains(attack_contains.lower())
-    m_tfpr   = np.isclose(df["target_fpr"].to_numpy(), float(target_fpr), rtol=1e-6, atol=1e-12)
-    vals = pd.to_numeric(df.loc[m_attack & m_tfpr, "threshold"], errors="coerce").to_numpy()
+def load_thresholds_for_attack(threshold_df: pd.DataFrame,
+                                target_fpr: float,
+                                attack_contains: str = "online") -> np.ndarray:
+    """
+    Load threshold values for a specific attack and target FPR.
+
+    Args:
+        threshold_df: Threshold information DataFrame
+        target_fpr: Target FPR value
+        attack_contains: Substring to match in attack name
+
+    Returns:
+        Array of threshold values
+    """
+    threshold_df["target_fpr"] = pd.to_numeric(threshold_df["target_fpr"], errors="coerce")
+    m_attack = threshold_df["attack"].astype(str).str.lower().str.contains(
+        attack_contains.lower()
+    )
+    m_tfpr = np.isclose(
+        threshold_df["target_fpr"].to_numpy(), float(target_fpr),
+        rtol=1e-6, atol=1e-12
+    )
+
+    vals = pd.to_numeric(
+        threshold_df.loc[m_attack & m_tfpr, "threshold"], errors="coerce"
+    ).to_numpy()
     vals = vals[np.isfinite(vals)]
+
     return vals
 
-def _load_thresholds_many(csv_paths, target_fpr, attack_contains="online"):
-    series = []
-    for p in csv_paths:
-        v = _load_thresholds(p, target_fpr, attack_contains)
-        if v.size:
-            series.append(v)
-    return np.concatenate(series) if series else np.array([])
 
-# ------------------ Robust dispersion (median-centric) ------------------
-def _median_rmad(vals):
-    med = float(np.median(vals))
-    mad = float(np.median(np.abs(vals - med)))
-    rmad = 100.0 * 1.4826 * mad / med if med != 0 else np.nan
-    return med, rmad
+def plot_threshold_distribution(experiment_dir: str,
+                                 target_fpr: float = 1e-5,
+                                 output_path: str = None,
+                                 attack_name: str = "online",
+                                 show_fliers: bool = False,
+                                 whisker_mode: str = "tukey") -> str:
+    """
+    Create box plot of threshold distribution.
 
-# ------------------ Main: side-by-side BOX with Q3-aligned labels ------------------
-def plot_thresholds_box_q3labels(
-    single_csv,
-    pooled_csvs,       # list[str]: CSVs to pool for the right box
-    out_path,
-    target_fpr=1e-5,
-    labels=(r"(a) Single run ($M{=}256$)", r"(b) Five runs ($5{\times}256$)"),
-    show_fliers=False,
-    whisker_mode="tukey"  # "tukey" (1.5*IQR) or "p05p95" (5–95% whiskers)
-):
-    vals_single = _load_thresholds(single_csv, target_fpr)
-    vals_pooled = _load_thresholds_many(pooled_csvs, target_fpr)
-    if vals_single.size == 0:
-        raise ValueError("No thresholds in single_csv for the given filters.")
-    if vals_pooled.size == 0:
-        raise ValueError("No thresholds found across pooled_csvs for the given filters.")
+    Args:
+        experiment_dir: Path to experiment directory
+        target_fpr: Target FPR value
+        output_path: Output path for plot (auto-generated if None)
+        attack_name: Attack name substring to match
+        show_fliers: Whether to show outliers
+        whisker_mode: "tukey" (1.5*IQR) or "p05p95" (5-95% percentiles)
 
-    _style_for_papers()
+    Returns:
+        Path to saved figure
+    """
+    experiment_dir = Path(experiment_dir)
+
+    # Load threshold information
+    threshold_df = load_threshold_info(experiment_dir)
+
+    # Load thresholds for the specified attack
+    thresholds = load_thresholds_for_attack(threshold_df, target_fpr, attack_name)
+
+    if len(thresholds) == 0:
+        raise ValueError(f"No thresholds found for attack='{attack_name}' at FPR={target_fpr}")
+
+    # Get experiment info for title
+    exp_info = get_experiment_info(experiment_dir)
+
+    # Setup plotting style
+    setup_paper_style()
+
+    # Create plot
+    fig, ax = plt.subplots(figsize=(4, 3))
+    plt.subplots_adjust(left=0.15, right=0.96, top=0.92, bottom=0.15)
 
     whis = (5, 95) if whisker_mode == "p05p95" else 1.5
-    fig, ax = plt.subplots(figsize=(3.6, 2.2))
-    plt.subplots_adjust(left=0.12, right=0.99, top=0.95, bottom=0.24)
 
-    data = [vals_single, vals_pooled]
     bp = ax.boxplot(
-        data,
+        [thresholds],
         vert=True,
         patch_artist=True,
         widths=0.55,
@@ -90,56 +103,111 @@ def plot_thresholds_box_q3labels(
         showfliers=show_fliers
     )
 
-    # Colors
-    edgecolors = [OI_BLUE, OI_ORANGE]
-    facecolors = [OI_BLUE + "33", OI_ORANGE + "33"]
-    for patch, fc, ec in zip(bp['boxes'], facecolors, edgecolors):
-        patch.set_facecolor(fc)
-        patch.set_edgecolor(ec)
-        patch.set_linewidth(1.0)
-    for med in bp['medians']:
-        med.set_color(OI_VERMIL); med.set_linewidth(1.2)
-    for part in ["whiskers", "caps"]:
-        for i, line in enumerate(bp[part]):
-            ec = edgecolors[0] if i < 2 else edgecolors[1]
-            line.set_color(ec); line.set_linewidth(0.9)
+    # Style the box
+    bp['boxes'][0].set_facecolor(COLORS['blue'] + '33')
+    bp['boxes'][0].set_edgecolor(COLORS['blue'])
+    bp['boxes'][0].set_linewidth(1.0)
+    bp['medians'][0].set_color(COLORS['vermillion'])
+    bp['medians'][0].set_linewidth(1.2)
 
-    # Axes labels
-    ax.set_xticks([1, 2])
-    ax.set_xticklabels(labels, fontsize=8.5)
+    for item in ['whiskers', 'caps']:
+        for line in bp[item]:
+            line.set_color(COLORS['blue'])
+            line.set_linewidth(0.9)
+
+    # Add statistics annotation
+    median, rmad = compute_median_and_rmad(thresholds)
+    q3 = float(np.percentile(thresholds, 75))
+
+    ax.annotate(
+        f"Median = {median:.2f}\\nrMAD = {rmad:.1f}%\\nn = {len(thresholds)}",
+        xy=(1, q3),
+        xytext=(10, 15),
+        textcoords="offset points",
+        ha="left", va="bottom",
+        fontsize=7, color="#1A2732",
+        bbox=dict(facecolor="white", edgecolor="none", alpha=0.7, pad=0.5),
+        clip_on=False
+    )
+
+    # Labels
+    ax.set_xticks([1])
+    ax.set_xticklabels([f"LiRA ({attack_name})"])
     ax.set_ylabel(r"Threshold $\tau$")
 
-    # ---- Q3-aligned annotations (placed just above Q3) ----
-    for xpos, vals, color in zip([1, 2], data, edgecolors):
-        med, rmad = _median_rmad(vals)
-        q3 = float(np.percentile(vals, 75))
-        ax.annotate(
-            f"Median = {med:.2f}\n"
-            f"rMAD = {rmad:.1f}%",
-            xy=(xpos, q3),                    # anchor at top of box
-            xytext=(5, 12),                   # shift right & upward (points)
-            textcoords="offset points",
-            ha="left", va="bottom",           # position above box
-            fontsize=6.5, color="#1A2732",
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.65, pad=0.4),
-            clip_on=False
-        )
+    dataset = exp_info.get('dataset', 'unknown')
+    model = exp_info.get('model', 'unknown')
+    ax.set_title(f"{dataset.upper()} - {model}", fontsize=9)
 
+    ax.grid(True, alpha=0.3, axis='y')
 
-    out_path = Path(out_path); out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, bbox_inches="tight", transparent=True)
+    # Determine output path
+    if output_path is None:
+        output_path = experiment_dir / f"threshold_distribution_{attack_name}_fpr{target_fpr:.0e}.pdf"
+    else:
+        output_path = Path(output_path)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, bbox_inches="tight", dpi=300, transparent=True)
     plt.close(fig)
-    return str(out_path)
 
-# ------------------ Example ------------------
-plot_thresholds_box_q3labels(
-    single_csv="thresholds/seed42.csv",
-    pooled_csvs=[
-        "thresholds/seed0.csv", "thresholds/seed7.csv", "thresholds/seed42.csv",
-        "thresholds/seed123.csv", "thresholds/seed1234.csv",
-    ],
-    out_path="thresholds/thresh_sidebyside_box_q3labels.pdf",
-    target_fpr=1e-5,
-    show_fliers=False,
-    whisker_mode="tukey"
-)
+    print(f"Saved threshold distribution plot to {output_path}")
+    return str(output_path)
+
+
+def main():
+    """Command-line interface for threshold distribution analysis."""
+    parser = argparse.ArgumentParser(
+        description="Plot threshold distributions from LiRA leave-one-out evaluation"
+    )
+    parser.add_argument(
+        "--experiment_dir",
+        type=str,
+        required=True,
+        help="Path to experiment directory"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output path for plot (default: auto-generated in experiment dir)"
+    )
+    parser.add_argument(
+        "--target_fpr",
+        type=float,
+        default=1e-5,
+        help="Target FPR value (default: 1e-5)"
+    )
+    parser.add_argument(
+        "--attack",
+        type=str,
+        default="online",
+        help="Attack name substring to match (default: online)"
+    )
+    parser.add_argument(
+        "--show_fliers",
+        action="store_true",
+        help="Show outliers in box plot"
+    )
+    parser.add_argument(
+        "--whisker_mode",
+        type=str,
+        choices=["tukey", "p05p95"],
+        default="tukey",
+        help="Whisker mode: tukey (1.5*IQR) or p05p95 (5-95 percentiles)"
+    )
+
+    args = parser.parse_args()
+
+    plot_threshold_distribution(
+        experiment_dir=args.experiment_dir,
+        target_fpr=args.target_fpr,
+        output_path=args.output,
+        attack_name=args.attack,
+        show_fliers=args.show_fliers,
+        whisker_mode=args.whisker_mode
+    )
+
+
+if __name__ == "__main__":
+    main()

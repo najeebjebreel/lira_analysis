@@ -2,6 +2,25 @@
 
 This directory contains Jupyter notebooks and scripts for analyzing LiRA attack results.
 
+## Structure
+
+The analysis code is organized into **reusable Python modules** and **standalone scripts**:
+
+- **Modules** (`analysis_utils.py`, `metrics.py`, `visualization.py`, `latex_utils.py`):
+  - Reusable functions for common analysis tasks
+  - Import these in your own scripts and notebooks
+  - Well-documented with docstrings and type hints
+
+- **Scripts** (`threshold_dist.py`, `compare_attacks.py`, `vulnerability_analysis.py`):
+  - Ready-to-run analysis pipelines
+  - Command-line interfaces with argparse
+  - Use these for quick analysis without writing code
+
+- **Notebooks** (`post_analysis.ipynb`, `plot_benchmark+distribution.ipynb`, etc.):
+  - Interactive exploration and visualization
+  - Can leverage the reusable modules
+  - Good for custom analysis and paper figures
+
 ## Contents
 
 ### Jupyter Notebooks
@@ -83,6 +102,95 @@ This directory contains Jupyter notebooks and scripts for analyzing LiRA attack 
 
 ---
 
+### Python Modules
+
+The analysis code has been refactored into reusable modules:
+
+#### `analysis_utils.py`
+**Purpose**: Core utilities for loading and processing experiment data
+
+**Key functions**:
+- `load_experiment_config()`: Load train/attack configurations
+- `load_attack_scores()`: Load all attack scores from experiment
+- `load_membership_labels()`: Load ground truth labels
+- `load_dataset_for_analysis()`: Load datasets for visualization
+- `compute_per_sample_confusion_matrix()`: Compute TP/FP/TN/FN per sample
+- `rank_samples_by_vulnerability()`: Rank samples by attack vulnerability
+- `get_highly_vulnerable_samples()`: Filter highly vulnerable samples
+
+**Usage example**:
+```python
+from analysis_results.analysis_utils import load_attack_scores, load_membership_labels
+
+scores_dict = load_attack_scores('experiments/cifar10/resnet18/...')
+labels = load_membership_labels('experiments/cifar10/resnet18/...')
+```
+
+#### `metrics.py`
+**Purpose**: ROC curve computation and evaluation metrics
+
+**Key functions**:
+- `compute_roc_metrics()`: Compute full ROC curve, AUC, and optimal thresholds
+- `compute_tpr_at_fpr()`: Find TPR at specific FPR values
+- `compute_precision()`: Compute precision from TPR/FPR with prior
+- `compute_confusion_matrix_at_threshold()`: Get confusion matrix at threshold
+- `compute_median_and_rmad()`: Robust statistics for threshold distributions
+
+**Usage example**:
+```python
+from analysis_results.metrics import compute_roc_metrics, compute_tpr_at_fpr
+
+fpr, tpr, thresholds, auc, _ = compute_roc_metrics(scores, labels)
+tpr_val, threshold = compute_tpr_at_fpr(fpr, tpr, thresholds, target_fpr=0.01)
+```
+
+#### `visualization.py`
+**Purpose**: Publication-quality plotting functions
+
+**Key functions**:
+- `plot_roc_curves()`: Multi-attack ROC curve comparison
+- `plot_score_distributions()`: Histogram of member vs non-member scores
+- `plot_threshold_distribution_boxplot()`: Box plots of thresholds across models
+- `plot_vulnerable_samples_grid()`: Grid visualization of vulnerable samples
+- `setup_paper_style()`: Configure matplotlib for publication
+
+**Color palette**: Colorblind-safe Okabe-Ito palette
+
+**Usage example**:
+```python
+from analysis_results.visualization import plot_roc_curves, setup_paper_style
+
+setup_paper_style()
+roc_data = {'LiRA (online)': (fpr, tpr, auc)}
+fig = plot_roc_curves(roc_data, save_path='roc_curves.pdf')
+```
+
+#### `latex_utils.py`
+**Purpose**: LaTeX table generation for research papers
+
+**Key functions**:
+- `format_mean_std()`: Format values as "mean ± std" for LaTeX
+- `format_multiplier()`: Format reduction factors as "(×5.2)"
+- `create_metrics_table()`: Generate metrics table for single benchmark
+- `create_comparison_table()`: Generate multi-benchmark comparison table
+- `save_latex_table()`: Save table to .tex file
+
+**Usage example**:
+```python
+from analysis_results.latex_utils import create_metrics_table
+
+latex_str = create_metrics_table(
+    results_df=df,
+    attacks=['LiRA (online)', 'LiRA (offline)'],
+    target_fprs=[0.001, 0.01],
+    caption='Attack performance on CIFAR-10',
+    label='tab:results'
+)
+print(latex_str)  # Ready to copy into paper
+```
+
+---
+
 ### Python Scripts
 
 #### `threshold_dist.py`
@@ -96,12 +204,61 @@ This directory contains Jupyter notebooks and scripts for analyzing LiRA attack 
 
 **Usage**:
 ```bash
-python threshold_dist.py --experiment_dir PATH_TO_EXPERIMENT
+python threshold_dist.py --experiment_dir PATH_TO_EXPERIMENT \
+                         --target_fpr 0.001 \
+                         --output_dir custom_output
 ```
 
 **Outputs**:
 - `threshold_distribution.pdf`: Box plots of thresholds
 - `threshold_statistics.csv`: Summary statistics
+
+---
+
+#### `compare_attacks.py`
+**Purpose**: Compare all attack variants for a single experiment
+
+**What it does**:
+- Loads all attack scores (online, offline, global)
+- Computes ROC curves and metrics for each attack
+- Generates side-by-side visualizations
+- Creates comparison table with AUC, TPR@FPR, and precision
+
+**Usage**:
+```bash
+python compare_attacks.py --experiment_dir PATH_TO_EXPERIMENT \
+                          --target_fprs 0.001 0.01 0.1 \
+                          --prior 0.5
+```
+
+**Outputs**:
+- `attack_comparison_roc.pdf`: ROC curves
+- `attack_comparison_scores.pdf`: Score distributions
+- `attack_comparison_metrics.csv`: Performance metrics table
+
+---
+
+#### `vulnerability_analysis.py`
+**Purpose**: Identify and visualize samples vulnerable to membership inference
+
+**What it does**:
+- Computes per-sample confusion matrix across all leave-one-out models
+- Ranks samples by vulnerability (high TP, low FP)
+- Identifies highly vulnerable samples (TP>0, FP=0)
+- Creates grid visualization of most vulnerable samples (for image datasets)
+
+**Usage**:
+```bash
+python vulnerability_analysis.py --experiment_dir PATH_TO_EXPERIMENT \
+                                  --attack "LiRA (online)" \
+                                  --threshold 0.0 \
+                                  --k_samples 20
+```
+
+**Outputs**:
+- `vulnerability_ranked_{attack}.csv`: All samples ranked by vulnerability
+- `highly_vulnerable_{attack}.csv`: Subset meeting vulnerability criteria
+- `top{k}_vulnerable_grid.png`: Visual grid of top vulnerable samples
 
 ---
 
@@ -144,29 +301,48 @@ Update the `experiment_dir` variable in each notebook to point to your experimen
 
 ### 1. Compare Attack Variants
 
-Use `plot_benchmark+distribution.ipynb`:
+**Quick**: Use `compare_attacks.py` script
+```bash
+python compare_attacks.py --experiment_dir PATH --target_fprs 0.001 0.01
+```
+
+**Interactive**: Use `plot_benchmark+distribution.ipynb`
 1. Load results from multiple experiments
 2. Plot ROC curves side-by-side
 3. Create score distribution histograms
 4. Generate comparison tables
 
-### 2. Understand Sample Difficulty
+### 2. Analyze Sample Vulnerability
+
+**Quick**: Use `vulnerability_analysis.py` script
+```bash
+python vulnerability_analysis.py --experiment_dir PATH --attack "LiRA (online)"
+```
+
+**Interactive**: Use `post_analysis.ipynb` for detailed vulnerability analysis
+
+### 3. Understand Sample Difficulty
 
 Use `loss_ratio_tpr.ipynb`:
 1. Identify "easy" vs "hard" samples
 2. Analyze correlation with model confidence
 3. Find outliers and edge cases
 
-### 3. Evaluate Attack Agreement
+### 4. Evaluate Attack Agreement
 
 Use `agreement.ipynb`:
 1. Compute confusion matrices between attacks
 2. Find samples where attacks disagree
 3. Analyze complementary strengths
 
-### 4. Threshold Analysis
+### 5. Threshold Analysis
 
-Use `threshold_dist.py`:
+**Quick**: Use `threshold_dist.py` script
+```bash
+python threshold_dist.py --experiment_dir PATH --target_fpr 0.001
+```
+
+**Purpose**:
 1. Understand threshold variability across targets
 2. Identify robust vs sensitive attacks
 3. Calibrate attack parameters
@@ -175,22 +351,48 @@ Use `threshold_dist.py`:
 
 ## Adding Custom Analysis
 
-To add your own analysis:
+To add your own analysis, you can leverage the reusable modules:
 
-1. Copy `post_analysis.ipynb` to a new file
-2. Update the experiment directory path
-3. Load relevant data (scores, labels, metrics)
-4. Implement your analysis
-5. Generate visualizations and save results
+### Option 1: Using the Modules (Recommended)
 
-### Example Template
+```python
+import sys
+sys.path.append('..')  # If running from analysis_results directory
+
+from analysis_results.analysis_utils import load_attack_scores, load_membership_labels
+from analysis_results.metrics import compute_roc_metrics, compute_tpr_at_fpr
+from analysis_results.visualization import plot_roc_curves, setup_paper_style
+import matplotlib.pyplot as plt
+
+# Setup publication-quality plots
+setup_paper_style()
+
+# Load experiment results using utility functions
+experiment_dir = "experiments/cifar10/resnet18/2024-01-01_0000"
+scores_dict = load_attack_scores(experiment_dir, mode='leave_one_out')
+labels = load_membership_labels(experiment_dir)
+
+# Compute metrics using reusable functions
+fpr, tpr, thresholds, auc, _ = compute_roc_metrics(
+    scores_dict['LiRA (online)'].flatten(),
+    labels.flatten()
+)
+
+# Visualize using plotting functions
+roc_data = {'LiRA (online)': (fpr, tpr, auc)}
+fig = plot_roc_curves(roc_data, save_path=f"{experiment_dir}/custom_roc.pdf")
+
+print(f"AUC: {auc:.4f}")
+```
+
+### Option 2: Manual Implementation
 
 ```python
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Load experiment results
+# Load experiment results manually
 experiment_dir = "experiments/cifar10/resnet18/2024-01-01_0000"
 membership_labels = np.load(f"{experiment_dir}/membership_labels.npy")
 online_scores = np.load(f"{experiment_dir}/online_scores_leave_one_out.npy")
@@ -202,6 +404,16 @@ online_scores = np.load(f"{experiment_dir}/online_scores_leave_one_out.npy")
 plt.savefig(f"{experiment_dir}/custom_analysis.pdf")
 results_df.to_csv(f"{experiment_dir}/custom_results.csv")
 ```
+
+### Creating Standalone Analysis Scripts
+
+Follow the pattern in `compare_attacks.py` or `vulnerability_analysis.py`:
+
+1. Import from analysis modules
+2. Add argparse for command-line interface
+3. Implement main analysis function
+4. Save outputs with descriptive names
+5. Add docstrings and usage examples
 
 ---
 
