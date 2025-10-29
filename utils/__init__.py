@@ -21,21 +21,26 @@ from utils.utils import (
     recursive_update,
     cleanup_gpu_memory,
     load_checkpoint_safe,
-    validate_config,
+    validate_config
+)
+
+from utils.numerical_utils import (
     stable_softmax,
     stable_logsumexp,
     compute_cross_entropy_loss
+)
+
+from utils.path_utils import (
+    ExperimentPaths
 )
 
 from utils.data_utils import (
     TabularDataset,
     TransformSubset,
     load_dataset,
-    load_dataset_for_mia_inference,
     create_data_loaders,
     get_keep_indices,
     build_transforms,
-    build_attack_transform,
     DATASET_STATS
 )
 
@@ -73,15 +78,15 @@ __all__ = [
     'stable_softmax',
     'stable_logsumexp',
     'compute_cross_entropy_loss',
+    # path_utils
+    'ExperimentPaths',
     # data_utils
     'TabularDataset',
     'TransformSubset',
     'load_dataset',
-    'load_dataset_for_mia_inference',
     'create_data_loaders',
     'get_keep_indices',
     'build_transforms',
-    'build_attack_transform',
     'DATASET_STATS',
     # model_utils
     'FCN',

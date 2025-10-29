@@ -18,8 +18,9 @@ import matplotlib
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
-from utils.data_utils import load_dataset_for_mia_inference
-from utils.utils import stable_softmax, stable_logsumexp, compute_cross_entropy_loss
+from utils.data_utils import load_dataset
+from utils.utils import load_checkpoint_safe
+from utils.numerical_utils import stable_softmax, stable_logsumexp, compute_cross_entropy_loss
 from analysis_results.metrics import compute_roc_metrics, compute_tpr_at_fpr, compute_precision
 
 class LiRA:
@@ -64,7 +65,7 @@ class LiRA:
 
         # Load dataset
         self.logger.info("Loading dataset...")
-        self.full_dataset, self.labels = load_dataset_for_mia_inference(config)
+        self.full_dataset, self.labels = load_dataset(config, mode='inference')
         self.logger.info("Dataset loaded...")
         self.logger.info("full_dataset size: %d", len(self.full_dataset))
         
@@ -235,9 +236,7 @@ class LiRA:
 
             try:
                 self.logger.info(f"Loading checkpoint from {ckpt}")
-                checkpoint = torch.load(ckpt, map_location=self.device)
-                state = checkpoint.get('state_dict', checkpoint)
-                self.model.load_state_dict(state)
+                self.model, _ = load_checkpoint_safe(ckpt, self.model, self.device, self.logger)
 
                 aug_desc = f"{self.aug_type}"
                 if self.spatial_shift > 0:
