@@ -1,43 +1,47 @@
-
 # Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This repository provides a **reproducible implementation** of our paper
-***“Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions”***
+This repository provides a **reproducible implementation** of our paper  
+***“Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions”***  
 (currently **under review** at a peer-reviewed conference).
 
-It re-evaluates the Likelihood Ratio Attack (LiRA) under **practical training and attack assumptions**, with analyses for **shadow-only threshold calibration**, **skewed membership priors**, and **per-sample reproducibility** of membership inferences.
+It re-evaluates the Likelihood Ratio Attack (LiRA) under **practical training and attack assumptions**, introducing analyses for **realistic threshold calibration**, **skewed membership priors**, and **per-sample reproducibility** of membership inference outcomes.
 
 ---
 
 ## Overview
 
-**Membership Inference Attacks (MIAs)** test whether a data point was used to train a model. **LiRA** is a strong black-box MIA when many shadow models are available (e.g., M=256). Prior evaluations often **overestimated risk** by (i) attacking overconfident models, (ii) calibrating thresholds on target data, (iii) assuming balanced priors, and (iv) overlooking per-sample reproducibility.
+**Membership Inference Attacks (MIAs)** test whether a data point was used to train a model.  
+**LiRA** is a strong black-box MIA when many shadow models are available (e.g., M=256).  
+However, prior work often **overestimated attack success** by:
+- Evaluating overconfident models,
+- Calibrating thresholds on target data,
+- Assuming balanced membership priors,
+- Ignoring reproducibility across runs.
 
-This repo follows a **realistic evaluation protocol**:
+This implementation provides a **realistic and reproducible evaluation** of LiRA with:
 
-* Targets trained with **Anti-Overfitting (AOF)** and, where applicable, **Transfer Learning (TL)** to reduce loss-wise overconfidence while preserving accuracy.
-* **Thresholds calibrated only on shadow models**; **PPV** evaluated under skewed priors (e.g., π ≤ 10%).
-* **Reproducibility** quantified across seeds, hyperparameters, and architectures.
+- **Anti-Overfitting (AOF)** and **Transfer Learning (TL)** target models,  
+  preserving accuracy while reducing overconfidence.  
+- **Shadow-only threshold calibration** and **precision (PPV)** under realistic priors (π ≤ 10%).  
+- **Per-sample reproducibility analysis** across architectures, seeds, and configurations.  
 
-**Key findings**:
-
-* AOF and TL substantially **reduce LiRA success** while maintaining (often improving) utility.
-* Under shadow-calibrated thresholds and skewed priors, **PPV drops** and varies across targets.
-* **Per-sample positives are unstable** across runs; support-qualified reporting is recommended.
+**Key findings:**
+- AOF and TL significantly **reduce LiRA’s success** while maintaining model utility.  
+- **Shadow-calibrated thresholds** and **skewed priors** substantially lower PPV.  
+- **Membership predictions are unstable per sample**; reproducibility requires support-qualified reporting.
 
 ---
 
 ## Installation
 
 **Prerequisites**
-
-* Python ≥ 3.8
-* CUDA-capable GPU (recommended)
-* 16 GB+ RAM (32 GB recommended for large grids)
+- Python ≥ 3.8  
+- CUDA-capable GPU (recommended)  
+- 16 GB+ RAM (32 GB recommended for large grids)
 
 ```bash
 git clone https://github.com/najeebjebreel/lira-analysis.git
@@ -45,32 +49,31 @@ cd lira-analysis
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
+````
 
 ---
 
 ## Quick Start
 
-1. **Train shadow models (example: CIFAR-10)**
+1. **Train Shadow Models (example: CIFAR-10)**
 
    ```bash
    python train.py --config configs/config_train_image.yaml
    ```
 
-   This trains **256** shadow models by default and saves artifacts under:
+   Trains **256** shadow models and saves artifacts under:
    `experiments/cifar10/resnet18/YYYY-MM-DD_HHMM/`
 
-2. **Run LiRA attack**
+2. **Run LiRA Attack**
 
    ```bash
    python attack.py --config configs/config_attack.yaml \
      --override experiment.checkpoint_dir=experiments/cifar10/resnet18/YYYY-MM-DD_HHMM
    ```
 
-   This generates logits/scores, runs online/offline/global variants, and writes metrics/curves.
+   Runs online, offline, and global variants; saves metrics and ROC curves.
 
-3. **Analyze results**
-   Outputs are saved to the experiment directory, e.g.:
+3. **Analyze Results**
 
    ```
    experiments/cifar10/resnet18/YYYY-MM-DD_HHMM/
@@ -92,8 +95,10 @@ lira_analysis/
 ├── configs/                  # YAML configs (training / attack)
 ├── attacks/                  # LiRA implementations
 ├── utils/                    # Helpers (I/O, logging, models, seeding, etc.)
-├── analysis_results/         # Notebooks & scripts for figures
+├── analysis_results/         # Analysis notebooks & scripts
 │   ├── threshold_dist.py
+│   ├── compare_attacks.py
+│   ├── vulnerability_analysis.py
 │   ├── loss_ratio_tpr.ipynb
 │   ├── plot_benchmark+distribution.ipynb
 │   ├── agreement.ipynb
@@ -115,52 +120,54 @@ lira_analysis/
 
 ## Attack Variants
 
-1. **LiRA (Online)** — IN/OUT modeling; strongest with many shadows
-2. **LiRA (Online, Fixed Variance)** — global variance; more stable with fewer shadows
-3. **LiRA (Offline)** — OUT-only; lighter but weaker
-4. **LiRA (Offline, Fixed Variance)**
-5. **Global Threshold** — no shadows; baseline sanity check
+1. **LiRA (Online)** — in/out modeling; strongest with many shadows.
+2. **LiRA (Online, Fixed Variance)** — global variance; more stable for small shadow sets.
+3. **LiRA (Offline)** — out-only; realistic but weaker.
+4. **LiRA (Offline, Fixed Variance)** — simplest offline baseline.
+5. **Global Threshold** — single fixed threshold; sanity baseline.
 
 ---
 
 ## Evaluation Modes
 
-* **Single-Target** — quick smoke tests
-* **Leave-One-Out** — each shadow acts once as “target” (default; aggregated mean ± std)
-* Metrics: **AUC**, **TPR at ultra-low FPRs** (e.g., 0.001%, 0.1%), and **PPV under priors** π ∈ {1%, 10%, 50%}
-
-Thresholds and PPV use **shadow-only calibration** (achieved FPR/TPR, not nominal).
+* **Single-Target** — fast single-model evaluation.
+* **Leave-One-Out (default)** — each shadow model serves once as a target; reports mean ± std.
+* Metrics: **AUC**, **TPR @ low FPRs (0.001–0.1%)**, **PPV** under priors π ∈ {1%, 10%, 50%}.
+* Thresholds and PPV use **shadow-only calibration** (realistic evaluation).
 
 ---
 
-## Results & Visualization
+## Analysis and Visualization
 
-Use the notebooks and scripts in `analysis_results/` to reproduce paper figures and tables:
+All post-attack analyses are in [`analysis_results/`](analysis_results/), which includes reusable modules, standalone scripts, and interactive notebooks.
 
-| File                                | Purpose                                      |
-| ----------------------------------- | -------------------------------------------- |
-| `threshold_dist.py`                 | Threshold variability & boxplots             |
-| `agreement.ipynb`                   | Per-sample reproducibility (Jaccard overlap) |
-| `loss_ratio_tpr.ipynb`              | Loss-ratio vs attack success correlation     |
-| `plot_benchmark+distribution.ipynb` | Benchmark & score-distribution plots         |
-| `post_analysis.ipynb`               | Aggregated paper figures and summaries       |
+| File                                | Purpose                                   |
+| ----------------------------------- | ----------------------------------------- |
+| `threshold_dist.py`                 | Threshold distributions & boxplots        |
+| `compare_attacks.py`                | Multi-attack ROC & metric comparison      |
+| `vulnerability_analysis.py`         | Identify and visualize vulnerable samples |
+| `loss_ratio_tpr.ipynb`              | Loss-ratio vs TPR correlation             |
+| `plot_benchmark+distribution.ipynb` | Score distributions & benchmark plots     |
+| `agreement.ipynb`                   | Cross-attack agreement analysis           |
+| `post_analysis.ipynb`               | Full paper figure and table generation    |
+
+Each analysis script produces publication-quality figures and LaTeX-ready tables (AUC, TPR, PPV, thresholds).
+For details, see [`analysis_results/README.md`](analysis_results/README.md).
 
 ---
 
 ## Citation
 
-If you use this code in your research, please cite our work:
+If you use this code in your research, please cite:
 
 ```bibtex
 @inproceedings{Jebreel2025LiRARealistic,
   title     = {Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions},
   author    = {Najeeb Jebreel and Mona Khalil and David S{\'a}nchez and Josep Domingo-Ferrer},
   booktitle = {Under Review},
-  year      = {2025},
+  year      = {2025}
 }
 ```
-
-
 
 ---
 
@@ -173,4 +180,4 @@ Released under the **MIT License** — see [LICENSE](LICENSE).
 ## Acknowledgments
 
 We thank the original LiRA authors and the open-source community (PyTorch, TIMM, Hydra, etc.).
-Use this code **for research and educational purposes only** and follow applicable ethical guidelines and policies.
+Please use this code **for research and educational purposes only** and follow appropriate ethical and privacy guidelines.
