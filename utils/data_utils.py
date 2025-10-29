@@ -214,97 +214,106 @@ def get_keep_indices(dataset_size, num_shadow_models, pkeep, seed=0):
     return keep_indices
 
 
-def load_dataset(config):
+def load_dataset(config, mode='training'):
     """
-    Efficiently load a dataset with minimal memory overhead.
+    Unified dataset loading function for both training and inference.
 
     Args:
         config (dict): Configuration dictionary containing dataset details
+        mode (str): Loading mode - 'training' or 'inference'
+            - 'training': Returns datasets without transforms, plus keep_indices and transforms separately
+            - 'inference': Returns dataset with transforms applied, plus labels array
 
     Returns:
-        tuple: (full_dataset, keep_indices, train_transform, test_transform)
+        If mode='training': (full_dataset, keep_indices, train_transform, test_transform)
+        If mode='inference': (full_dataset, full_labels)
     """
     dataset_name = config['dataset']['name'].lower()
     data_dir = config.get('dataset', {}).get('data_dir', 'data')
-    
-    # Prepare transforms first (will be applied lazily in data loaders)
-    train_transform = build_transforms(config, train=True)
-    test_transform = build_transforms(config, train=False)
+
+    # Prepare transforms based on mode
+    if mode == 'training':
+        train_transform = build_transforms(config, train=True)
+        test_transform = build_transforms(config, train=False)
+        apply_transform = None  # Don't apply yet for training
+    else:  # inference
+        apply_transform = build_attack_transform(config)
+        train_transform = test_transform = None
 
     # Load appropriate dataset based on name
     if dataset_name == 'cifar10':
-        # Download once, don't apply transforms yet (more efficient)
-        train_dataset = CIFAR10(root=data_dir, train=True, download=True)
-        test_dataset = CIFAR10(root=data_dir, train=False, download=True)
+        train_dataset = CIFAR10(root=data_dir, train=True, download=True, transform=apply_transform)
+        test_dataset = CIFAR10(root=data_dir, train=False, download=True, transform=apply_transform)
         full_dataset = ConcatDataset([train_dataset, test_dataset])
-        
+
+        if mode == 'inference':
+            train_labels = np.array(train_dataset.targets)
+            test_labels = np.array(test_dataset.targets)
+            full_labels = np.concatenate((train_labels, test_labels), axis=0)
+
     elif dataset_name == 'cifar100':
-        train_dataset = CIFAR100(root=data_dir, train=True, download=True)
-        test_dataset = CIFAR100(root=data_dir, train=False, download=True)
+        train_dataset = CIFAR100(root=data_dir, train=True, download=True, transform=apply_transform)
+        test_dataset = CIFAR100(root=data_dir, train=False, download=True, transform=apply_transform)
         full_dataset = ConcatDataset([train_dataset, test_dataset])
-        
+
+        if mode == 'inference':
+            train_labels = np.array(train_dataset.targets)
+            test_labels = np.array(test_dataset.targets)
+            full_labels = np.concatenate((train_labels, test_labels), axis=0)
+
     elif dataset_name == 'gtsrb':
-        # Use torchvision's built-in GTSRB dataset
-        train_dataset = GTSRB(root=data_dir, split='train', download=True)
-        test_dataset = GTSRB(root=data_dir, split='test', download=True)
+        train_dataset = GTSRB(root=data_dir, split='train', download=True, transform=apply_transform)
+        test_dataset = GTSRB(root=data_dir, split='test', download=True, transform=apply_transform)
         full_dataset = ConcatDataset([train_dataset, test_dataset])
+
+        if mode == 'inference':
+            train_labels = np.array([sample[1] for sample in train_dataset._samples])
+            test_labels = np.array([sample[1] for sample in test_dataset._samples])
+            full_labels = np.concatenate((train_labels, test_labels), axis=0)
 
     elif dataset_name == 'purchase':
         data_path = os.path.join(data_dir, dataset_name, 'features_labels.npy')
-        # More efficient data loading with dtype control
         full_data = np.load(data_path)
-        # Convert to torch tensors directly for better memory efficiency
         full_features = torch.tensor(full_data[:,1:].astype(np.float32))
-        full_label = torch.tensor(full_data[:,0].astype(np.int64)-1)
-        full_dataset = TabularDataset(full_features, full_label)
-    
+        full_labels_raw = full_data[:,0].astype(np.int32) - 1
+
+        if mode == 'training':
+            full_labels_tensor = torch.tensor(full_labels_raw.astype(np.int64))
+            full_dataset = TabularDataset(full_features, full_labels_tensor)
+        else:  # inference
+            full_dataset = TabularDataset(full_features, full_labels_raw, transform=None)
+            full_labels = full_labels_raw
+
     else:
         raise ValueError(f"Unsupported dataset: {dataset_name}")
-    
-    # Generate training/shadow indices
-    keep_indices = get_keep_indices(
-        len(full_dataset), 
-        config['training']['num_shadow_models'], 
-        config['dataset']['pkeep'], 
-        config['seed']
-    )
 
-    return full_dataset, keep_indices, train_transform, test_transform
+    # Return based on mode
+    if mode == 'training':
+        keep_indices = get_keep_indices(
+            len(full_dataset),
+            config['training']['num_shadow_models'],
+            config['dataset']['pkeep'],
+            config['seed']
+        )
+        return full_dataset, keep_indices, train_transform, test_transform
+    else:  # inference
+        return full_dataset, full_labels
 
 
 def build_attack_transform(config):
     """
-    Build optimized transforms with better ordering for efficiency.
-    
+    Build transforms for attack/inference mode.
+
+    DEPRECATED: This is now just a wrapper around build_transforms(config, train=False).
+    Use build_transforms(config, train=False) directly for new code.
+
     Args:
         config (dict): Configuration dictionary containing dataset settings
-        train (bool): Whether to build training or evaluation transforms
-        
+
     Returns:
         torchvision.transforms.Compose or None
     """
-    ds_cfg = config.get('dataset', {})
-    name = ds_cfg.get('name', '').lower()
-    
-    # Early return for tabular datasets
-    if name in ['purchase', 'texas', 'location']:
-        return None
-    
-    input_size = ds_cfg.get('input_size', 32)  # Default to 32 for most datasets
-
-    transform_ops = []
-    
-    transform_ops.append(transforms.Resize((input_size, input_size)))
-    # Convert to tensor (required before tensor-based transforms)
-    transform_ops.append(transforms.ToTensor())
-    pretrained = config.get('model', {}).get('pretrained', False)
-    stats_key = 'imagenet' if (pretrained or name == 'imagenet') else name
-    mean, std = DATASET_STATS.get(stats_key, ((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
-    transform_ops.append(transforms.Normalize(mean, std))
-
-    print("Attack transform:", transform_ops)
-
-    return transforms.Compose(transform_ops)
+    return build_transforms(config, train=False)
     
        
 
@@ -312,57 +321,16 @@ def load_dataset_for_mia_inference(config):
     """
     Load a dataset specifically optimized for MIA inference.
 
+    DEPRECATED: This function is now a wrapper around load_dataset(config, mode='inference').
+    Please use load_dataset(config, mode='inference') directly for new code.
+
     Args:
         config (dict): Configuration dictionary containing dataset details
 
     Returns:
-        tuple: (full_dataset, full_label)
+        tuple: (full_dataset, full_labels)
     """
-    dataset_name = config['dataset']['name'].lower()
-    data_dir = config.get('dataset', {}).get('data_dir', 'data')
-    aug_transform = build_attack_transform(config)
-    
-    if dataset_name == 'cifar10':
-        # Directly apply transform during loading for inference
-        train_dataset = CIFAR10(root=data_dir, train=True, download=True, transform=aug_transform)
-        test_dataset = CIFAR10(root=data_dir, train=False, download=True, transform=aug_transform)
-        full_dataset = ConcatDataset([train_dataset, test_dataset])
-        train_label = np.array(train_dataset.targets)
-        test_label = np.array(test_dataset.targets)
-        full_label = np.concatenate((train_label, test_label), axis=0)
-        
-    elif dataset_name == 'cifar100':
-        train_dataset = CIFAR100(root=data_dir, train=True, download=True, transform=aug_transform)
-        test_dataset = CIFAR100(root=data_dir, train=False, download=True, transform=aug_transform)
-        full_dataset = ConcatDataset([train_dataset, test_dataset])
-        train_label = np.array(train_dataset.targets)
-        test_label = np.array(test_dataset.targets)
-        full_label = np.concatenate((train_label, test_label), axis=0)
-        
-
-    elif dataset_name == 'gtsrb':
-        # Load with transforms applied
-        train_dataset = GTSRB(root=data_dir, split='train', download=True, transform=aug_transform)
-        test_dataset = GTSRB(root=data_dir, split='test', download=True,  transform=aug_transform)
-        full_dataset = ConcatDataset([train_dataset, test_dataset])
-        
-        # Extract labels efficiently from the dataset's internal _samples
-        train_label = np.array([sample[1] for sample in train_dataset._samples])
-        test_label = np.array([sample[1] for sample in test_dataset._samples])
-        full_label = np.concatenate((train_label, test_label), axis=0)
-    
-    elif dataset_name == 'purchase':
-        data_path = os.path.join(data_dir, dataset_name, 'features_labels.npy')
-        full_data = np.load(data_path)
-        # Directly create tensors with correct dtype
-        full_features = torch.tensor(full_data[:,1:].astype(np.float32))
-        full_label = full_data[:,0].astype(np.int32)-1  # Keep labels as numpy for consistency
-        full_dataset = TabularDataset(full_features, full_label, transform=None)
-        
-    else:
-        raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-    return full_dataset, full_label
+    return load_dataset(config, mode='inference')
 
 
 def create_data_loaders(train_dataset, test_dataset, train_dataset_eval, config):
