@@ -1,4 +1,4 @@
-# LiRA: Likelihood Ratio Attack for Membership Inference
+# Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
@@ -6,7 +6,7 @@
 
 **Research implementation of "Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions"**
 
-This repository provides a production-quality, reproducible implementation of the Likelihood Ratio Attack (LiRA) for membership inference. The codebase follows modern research engineering best practices with modular design, comprehensive documentation, and extensive configurability.
+This repository provides a reproducible implementation of our paper "Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions".
 
 ---
 
@@ -35,30 +35,15 @@ This repository provides a production-quality, reproducible implementation of th
 
 ## Overview
 
-**Membership Inference Attacks (MIAs)** determine whether a specific data point was used to train a machine learning model. This poses serious privacy risks, especially when training data contains sensitive information.
+**Membership Inference Attacks (MIAs)** aim to determine whether a specific data point was used to train a machine learning model. This could pose serious privacy risks, when knowing training data membership can reveal sensitive information.
 
-**LiRA (Likelihood Ratio Attack)** is a state-of-the-art membership inference technique that leverages likelihood ratios computed from shadow models trained on different data subsets. This implementation extends the original work with:
+**LiRA (the Likelihood Ratio Attack)** is a state-of-the-art membership inference technique that leverages likelihood ratios computed from shadow models trained on different data subsets. 
+This implementation evaluates it with:
 
 - **Realistic threat models**: Online and offline attack variants
 - **Multiple evaluation modes**: Single-target and leave-one-out cross-validation
-- **Spatial augmentation support**: For improved attack robustness
 - **Comprehensive metrics**: AUC, accuracy, TPR@FPR, precision
 
----
-
-## Features
-
-✅ **Modular architecture**: Clean separation of training, attack, and analysis code
-✅ **Multiple datasets**: CIFAR-10/100, GTSRB (image), Purchase-100 (tabular)
-✅ **Flexible model zoo**: ResNet, WideResNet, FCN, and 200+ models via TIMM
-✅ **Attack variants**: Online, offline, fixed/adaptive variance, global threshold
-✅ **Evaluation modes**: Single-target and leave-one-out with uncertainty quantification
-✅ **Data augmentation**: Training augmentations (MixUp, CutMix, etc.) and inference augmentations
-✅ **Numerical stability**: scipy-based stable softmax and log-sum-exp
-✅ **GPU acceleration**: Full CUDA support with automatic mixed precision (AMP)
-✅ **Reproducibility**: Seed management and configuration tracking
-✅ **Professional logging**: Detailed experiment logs and progress tracking
-✅ **PEP8 compliant**: Clean, readable, well-documented code
 
 ---
 
@@ -74,7 +59,7 @@ This repository provides a production-quality, reproducible implementation of th
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/lira-analysis.git
+git clone https://github.com/najeebjebreel/lira-analysis.git
 cd lira-analysis
 
 # Create a virtual environment
@@ -83,19 +68,6 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
-```
-
-### Option 2: Development install with optional dependencies
-
-```bash
-# Install with development tools
-pip install -e ".[dev]"
-
-# Install with notebook support
-pip install -e ".[notebooks]"
-
-# Install everything
-pip install -e ".[dev,notebooks]"
 ```
 
 ---
