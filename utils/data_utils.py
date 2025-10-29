@@ -237,7 +237,7 @@ def load_dataset(config, mode='training'):
         test_transform = build_transforms(config, train=False)
         apply_transform = None  # Don't apply yet for training
     else:  # inference
-        apply_transform = build_attack_transform(config)
+        apply_transform = build_transforms(config, train=False)
         train_transform = test_transform = None
 
     # Load appropriate dataset based on name
@@ -298,39 +298,6 @@ def load_dataset(config, mode='training'):
         return full_dataset, keep_indices, train_transform, test_transform
     else:  # inference
         return full_dataset, full_labels
-
-
-def build_attack_transform(config):
-    """
-    Build transforms for attack/inference mode.
-
-    DEPRECATED: This is now just a wrapper around build_transforms(config, train=False).
-    Use build_transforms(config, train=False) directly for new code.
-
-    Args:
-        config (dict): Configuration dictionary containing dataset settings
-
-    Returns:
-        torchvision.transforms.Compose or None
-    """
-    return build_transforms(config, train=False)
-    
-       
-
-def load_dataset_for_mia_inference(config):
-    """
-    Load a dataset specifically optimized for MIA inference.
-
-    DEPRECATED: This function is now a wrapper around load_dataset(config, mode='inference').
-    Please use load_dataset(config, mode='inference') directly for new code.
-
-    Args:
-        config (dict): Configuration dictionary containing dataset details
-
-    Returns:
-        tuple: (full_dataset, full_labels)
-    """
-    return load_dataset(config, mode='inference')
 
 
 def create_data_loaders(train_dataset, test_dataset, train_dataset_eval, config):
