@@ -9,7 +9,7 @@ use_cuda: true  # Whether to use CUDA for training
 dataset:
   name: cifar10  # Options: cifar10, cifar100, gtsrb, cinic10, imagenet
   num_classes: 10  # CIFAR-10 has 10 classes (was 43)
-  input_size: 144  # Standard input size for pretrained models (was 160)
+  input_size: 144  # Blanced accuracy/efficiency input size for pretrained models 
   data_dir: data  # Directory to store datasets
   pkeep: 0.5  # Probability of keeping a sample as a member
 
