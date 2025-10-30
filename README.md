@@ -113,7 +113,7 @@ lira_analysis/
 │   ├── compare_attacks.py
 │   ├── vulnerability_analysis.py
 │   ├── loss_ratio_tpr.ipynb
-│   ├── plot_benchmark+distribution.ipynb
+│   ├── plot_benchmark_distribution.ipynb
 │   ├── agreement.ipynb
 │   └── post_analysis.ipynb
 └── experiments/              # Auto-generated outputs
