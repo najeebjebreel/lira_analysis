@@ -170,7 +170,7 @@ If you use this code in your research, please cite:
 ```bibtex
 @inproceedings{Jebreel2025LiRARealistic,
   title     = {Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions},
-  author    = {Najeeb Jebreel and Mona Khalil and David S{\'a}nchez and Josep Domingo-Ferrer},
+  author    = {Najeeb Jebreel, Mona Khalil, David Sánchez, and Josep Domingo-Ferrer},
   booktitle = {Under Review},
   year      = {2025}
 }
