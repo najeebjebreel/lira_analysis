@@ -146,7 +146,7 @@ lira_analysis/
 
 ## Analysis and Visualization
 
-All post-attack analyses are in [`analysis_results/`](analysis_results/), which includes reusable modules, standalone scripts, and interactive notebooks.
+All post-attack analyses are in [`analysis_results/`](analysis_results/), which reproduces our main rresults, and includes code scripts and interactive notebooks.
 
 | File                                | Purpose                                   |
 | ----------------------------------- | ----------------------------------------- |
