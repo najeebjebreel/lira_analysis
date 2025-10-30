@@ -259,29 +259,9 @@ print(f"Threshold std: {online['threshold'].std():.3f}")
 
 ---
 
-## Data Formats
-
-### Numpy Array Conventions
-
-- **Boolean masks**: Use `dtype=bool` for memory efficiency
-- **Scores/probabilities**: Use `dtype=float64` for numerical precision
-- **Logits**: Use `dtype=float32` for storage efficiency
-- **Indices**: Use `dtype=int32` or `int64`
-
-### Shape Conventions
-
-- **[M, N]**: M models, N samples (e.g., scores, labels)
-- **[N, C]**: N samples, C classes (e.g., logits)
-- **[N, A, C]**: N samples, A augmentations, C classes
-- **[N, 1, A, C]**: Added dimension for compatibility
-
 ### Score Semantics
 
 **Important:** All score files use the convention **"higher = more likely member"**
-
-- LiRA scores are already in this format (likelihood ratios)
-- Internal attack functions may use "lower = member" but outputs are flipped
-- When computing ROC curves, use `-score` for compatibility with sklearn
 
 ---
 
@@ -303,8 +283,8 @@ labels = np.load(f"{exp_dir}/membership_labels.npy")
 online_scores = np.load(f"{exp_dir}/online_scores_leave_one_out.npy")
 summary = pd.read_csv(f"{exp_dir}/attack_results_leave_one_out_summary.csv")
 
-# Analyze first target model
-target_idx = 0
+# Analyze last target model
+target_idx = -1
 y_true = labels[target_idx]
 y_score = online_scores[target_idx]
 
@@ -333,162 +313,6 @@ if len(idx) > 0:
     tpr_at_fpr = tpr[idx[-1]]
     print(f"TPR @ {target_fpr*100}% FPR: {tpr_at_fpr*100:.2f}%")
 ```
-
-### Per-Sample Vulnerability Analysis
-
-```python
-# Identify most vulnerable samples (frequently detected when members)
-M, N = labels.shape
-
-# Count true positives per sample across all models
-tp_counts = np.zeros(N, dtype=int)
-fp_counts = np.zeros(N, dtype=int)
-
-threshold = 0.0  # Adjust based on desired FPR
-for i in range(M):
-    predictions = online_scores[i] >= threshold
-    tp_counts += predictions & labels[i]
-    fp_counts += predictions & ~labels[i]
-
-# Most vulnerable: high TP, low FP
-vulnerability_score = tp_counts - fp_counts
-most_vulnerable_idx = np.argsort(vulnerability_score)[::-1][:100]
-
-print(f"Most vulnerable sample: idx={most_vulnerable_idx[0]}")
-print(f"  TP count: {tp_counts[most_vulnerable_idx[0]]}")
-print(f"  FP count: {fp_counts[most_vulnerable_idx[0]]}")
-```
-
-### Comparing Attack Variants
-
-```python
-# Load all attack scores
-attacks = {
-    'Online': np.load(f'{exp_dir}/online_scores_leave_one_out.npy'),
-    'Offline': np.load(f'{exp_dir}/offline_scores_leave_one_out.npy'),
-    'Global': np.load(f'{exp_dir}/global_scores_leave_one_out.npy'),
-}
-
-# Compute agreement between attacks
-target_idx = 0
-threshold = 0.0
-
-for name1, scores1 in attacks.items():
-    for name2, scores2 in attacks.items():
-        if name1 >= name2:  # Avoid duplicates
-            continue
-        pred1 = scores1[target_idx] >= threshold
-        pred2 = scores2[target_idx] >= threshold
-        agreement = np.mean(pred1 == pred2)
-        print(f"{name1} vs {name2}: {agreement*100:.1f}% agreement")
-```
-
----
-
-## Advanced Usage: Post-Analysis
-
-The `post_analysis.ipynb` notebook provides advanced analysis including:
-
-1. **Per-model metrics with two threshold modes:**
-   - Target mode: Threshold computed from target model's ROC
-   - Shadow mode: Threshold = median of other models' target thresholds
-
-2. **Per-sample vulnerability ranking:**
-   - Computes TP/FP/TN/FN per sample across leave-one-out models
-   - Identifies samples reliably detected when members, rarely flagged when non-members
-
-3. **Precision at different priors:**
-   - Computes precision assuming different membership priors (1%, 10%, 50%)
-   - Important for real-world threat modeling
-
-4. **LaTeX table generation:**
-   - Creates publication-ready tables with reduction factors
-   - Compares multiple benchmarks side-by-side
-
-5. **Vulnerable sample visualization:**
-   - Grid visualization of most vulnerable samples
-   - Annotated with TP/FP counts
-
-**Usage:**
-```python
-# See post_analysis.ipynb for complete implementation
-# Key outputs:
-# - per_model_metrics_two_modes.csv
-# - summary_statistics_two_modes.csv
-# - samples_vulnerability_ranked_online_shadow_0p001pct.csv
-# - samples_highly_vulnerable_online_shadow_0p001pct.csv
-# - top20_vulnerable_online_shadow_0p001pct.png
-```
-
----
-
-## Tips and Best Practices
-
-### Storage Considerations
-
-- **Logits files are large**: [N, 1, A, C] × float32 × M models
-  - CIFAR-10 (60K samples, 10 augs, 10 classes, 256 models): ~60 GB
-  - Consider deleting logits after computing scores to save space
-
-- **Score files are compact**: [N] × float64 × M models
-  - CIFAR-10 (60K samples, 256 models): ~120 MB
-
-### Loading Large Files
-
-For large experiments, use memory mapping:
-
-```python
-# Memory-mapped loading (doesn't load entire file into RAM)
-logits = np.load('model_0/logits/logits.npy', mmap_mode='r')
-# Access specific samples without loading all
-sample_0_logits = logits[0]  # Only loads this sample
-```
-
-### Cleaning Up
-
-To save space after attack completion:
-
-```bash
-# Delete logits (can be regenerated if needed)
-find experiments/ -name "logits.npy" -delete
-
-# Keep only scores and final results
-# Total space: ~200 MB for 256 models on CIFAR-10
-```
-
----
-
-## Troubleshooting
-
-### File Not Found
-
-**Problem:** `FileNotFoundError: membership_labels.npy`
-
-**Solution:** Run attack with `evaluation_mode=leave_one_out` or `both`:
-```bash
-python attack.py --config configs/config_attack.yaml \
-    --override attack.evaluation_mode=leave_one_out
-```
-
-### Shape Mismatch
-
-**Problem:** `ValueError: shapes (256, 60000) and (255, 60000) don't match`
-
-**Solution:** Some shadow models may have failed. Check logs and ensure all models completed training.
-
-### Memory Error
-
-**Problem:** `MemoryError` when loading large arrays
-
-**Solution:** Use memory mapping or process models incrementally:
-```python
-# Process one model at a time
-for i in range(num_models):
-    scores = np.load(f'model_{i}/scores/scores.npy')
-    # Process scores
-    del scores  # Free memory
-```
-
 
 ---
 
