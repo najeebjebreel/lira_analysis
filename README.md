@@ -95,15 +95,10 @@ This implementation provides a **realistic and reproducible evaluation** of LiRA
 
    Runs online, offline, and global variants; saves metrics and ROC curves.
 
-3. **Analyze Results**
+3. **Train and Attack Results**
 
    ```
-   experiments/cifar10/resnet18/YYYY-MM-DD_HHMM/
-   ├── roc_curve_single.pdf
-   ├── attack_results_single.csv
-   ├── attack_results_leave_one_out_summary.csv
-   ├── train_test_stats.csv
-   └── model_0/, model_1/, ...
+Look at OUTPUTS.md
    ```
 
 ---
