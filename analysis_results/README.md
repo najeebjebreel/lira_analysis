@@ -7,14 +7,7 @@ This directory contains Jupyter notebooks and scripts for analyzing LiRA attack 
 ### Jupyter Notebooks
 
 #### `loss_ratio_tpr.ipynb`
-**Purpose**: Analyze the relationship between loss ratios and True Positive Rate (TPR)
-
-**What it does**:
-- Loads membership scores and ground truth labels
-- Computes loss ratios for members vs non-members
-- Plots TPR as a function of loss ratio
-- Helps understand which samples are easier/harder to attack
-
+**Purpose**: Analyze the relationship between loss ratios and True Positive Rate (TPR).
 
 ---
 
@@ -292,6 +285,7 @@ python threshold_dist.py --experiment_dir PATH --target_fpr 0.001
 3. Calibrate attack parameters
 
 ---
+
 
 
 
