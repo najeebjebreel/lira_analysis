@@ -34,22 +34,67 @@ This implementation provides a **realistic and reproducible evaluation** of LiRA
 - **Shadow-calibrated thresholds** and **skewed priors** substantially lower PPV.  
 - **Membership predictions are unstable per sample**; reproducibility requires support-qualified reporting.
 
+
 ---
 
-## Installation
+## 🧩 Installation
 
-**Prerequisites**
-- Python ≥ 3.8  
-- CUDA-capable GPU (recommended)  
-- 16 GB+ RAM (32 GB recommended for large grids)
+### ⚙️ Prerequisites
+
+* **Python ≥ 3.8**
+* **CUDA-capable GPU** *(recommended for faster performance)*
+* **16 GB+ RAM** *(32 GB recommended for large grids)*
+* **Git**
+
+---
+
+### 🌟 Recommended: Using Miniconda
+
+[**Miniconda**](https://docs.conda.io/en/latest/miniconda.html) is the recommended way to set up a reliable and isolated environment for this project.
+
+1. **Install Miniconda**
+   Download and install from the official site:
+   👉 [https://docs.conda.io/en/latest/miniconda.html](https://docs.conda.io/en/latest/miniconda.html)
+
+2. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/najeebjebreel/lira_analysis.git
+   cd lira_analysis
+   ```
+
+3. **Create and activate the environment**
+
+   ```bash
+   conda create -n lira python=3.11
+   conda activate lira
+   ```
+
+4. **Install LiRA Analysis**
+
+   ```bash
+   pip install .
+   ```
+
+   > 💡 To include optional dependencies for development or notebooks:
+   >
+   > ```bash
+   > pip install .[dev]
+   > pip install .[notebooks]
+   > ```
+
+---
+
+### ✅ Verify Installation
 
 ```bash
-git clone https://github.com/najeebjebreel/lira_analysis.git
-cd lira_analysis
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+python -m pip show lira-analysis
 ```
+
+---
+
+
+
 
 ---
 
