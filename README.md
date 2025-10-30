@@ -150,15 +150,6 @@ lira_analysis/
 
 ---
 
-## Evaluation Modes
-
-* **Single-Target** — fast single-model evaluation.
-* **Leave-One-Out (default)** — each shadow model serves once as a target; reports mean ± std.
-* Metrics: **AUC**, **TPR @ low FPRs (0.001–0.1%)**, **PPV** under priors π ∈ {1%, 10%, 50%}.
-* Thresholds and PPV use **shadow-only calibration** (realistic evaluation).
-
----
-
 ## Analysis and Visualization
 
 All post-attack analyses are in [`analysis_results/`](analysis_results/), which includes reusable modules, standalone scripts, and interactive notebooks.
