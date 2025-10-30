@@ -39,14 +39,6 @@ This implementation provides a **realistic and reproducible evaluation** of LiRA
 
 ## 🧩 Installation
 
-### ⚙️ Prerequisites
-
-* **Python ≥ 3.8**
-* **CUDA-capable GPU** *(recommended for faster performance)*
-* **16 GB+ RAM** *(32 GB recommended for large grids)*
-
----
-
 ### 🌟 Recommended: Using Miniconda
 
 1. **Install Miniconda**
