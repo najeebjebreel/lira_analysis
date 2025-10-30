@@ -15,7 +15,7 @@ from pathlib import Path
 # Add the project root to the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from utils.utils import (
+from utils.common import (
     setup_logger, set_seed, save_config, parse_overrides,
     recursive_update, validate_config
 )
