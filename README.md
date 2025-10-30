@@ -74,18 +74,6 @@ This implementation provides a **realistic and reproducible evaluation** of LiRA
 
 ---
 
-### ✅ Verify Installation
-
-```bash
-python -m pip show lira-analysis
-```
-
----
-
-
-
-
----
 
 ## Quick Start
 
