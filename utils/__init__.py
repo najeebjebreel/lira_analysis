@@ -21,7 +21,8 @@ from utils.common import (
     recursive_update,
     cleanup_gpu_memory,
     load_checkpoint_safe,
-    validate_config
+    validate_config,
+    evaluate
 )
 
 from utils.numerical_utils import (
@@ -52,7 +53,6 @@ from utils.model_utils import (
 
 from utils.train_utils import (
     train_model,
-    evaluate_model,
     mixup_data,
     cutmix_data,
     get_optimizer,
@@ -61,7 +61,6 @@ from utils.train_utils import (
 )
 
 __all__ = [
-    # utils
     'setup_logger',
     'set_seed',
     'save_config',
@@ -78,9 +77,8 @@ __all__ = [
     'stable_softmax',
     'stable_logsumexp',
     'compute_cross_entropy_loss',
-    # path_utils
+    'evaluate',
     'ExperimentPaths',
-    # data_utils
     'TabularDataset',
     'TransformSubset',
     'load_dataset',
@@ -88,13 +86,10 @@ __all__ = [
     'get_keep_indices',
     'build_transforms',
     'DATASET_STATS',
-    # model_utils
     'FCN',
     'WideResNet',
     'get_model',
-    # train_utils
     'train_model',
-    'evaluate_model',
     'mixup_data',
     'cutmix_data',
     'get_optimizer',

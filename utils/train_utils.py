@@ -9,6 +9,7 @@ from tqdm import tqdm
 from torch.amp import autocast, GradScaler
 from pathlib import Path
 from torch.optim.lr_scheduler import OneCycleLR, CosineAnnealingLR, LinearLR, SequentialLR
+from utils.common import evaluate
 
 
 def log_msg(msg, logger=None, level="info"):
@@ -63,7 +64,7 @@ def cutmix_data(x, y, alpha=1.0):
     y_a, y_b = y, y[index]
     return mixed_x, y_a, y_b, lam  # Return the cloned version
 
-def create_optimizer(model, config):
+def get_optimizer(model, config):
     """
     Create optimized optimizer based on configuration.
     """
@@ -135,7 +136,7 @@ def create_optimizer(model, config):
     return optimizer
 
 
-def create_scheduler(optimizer, config, steps_per_epoch):
+def get_scheduler(optimizer, config, steps_per_epoch):
     """
     Create learning rate scheduler based on configuration.
     """
@@ -289,38 +290,6 @@ def train_epoch(
     return avg_loss, accuracy
 
 
-@torch.no_grad()
-def evaluate(model, data_loader, criterion, device, use_amp=True, logger=None, epoch=None, num_epochs=None, prefix="[Eval ]"):
-    """
-    Evaluate the model on a dataset.
-    """
-    model.eval()
-    loss_sum = 0.0
-    correct = 0
-    total = 0
-
-    for inputs, targets in data_loader:
-        inputs, targets = inputs.to(device, non_blocking=True), targets.to(device, non_blocking=True)
-
-        if use_amp:
-            with autocast('cuda'):
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
-        else:
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
-
-        loss_sum += loss.item()
-        _, predicted = outputs.max(1)
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
-
-    avg_loss = loss_sum / len(data_loader)
-    accuracy = 100. * correct / total
-    
-    return avg_loss, accuracy
-
-
 def train_model(
     model,
     train_loader,
@@ -351,11 +320,11 @@ def train_model(
 
     criterion = nn.CrossEntropyLoss()
 
-    # Create optimizer using new function
-    optimizer = create_optimizer(model, config)
+    # get optimizer using new function
+    optimizer = get_optimizer(model, config)
     
-    # Create scheduler using new function
-    scheduler, step_per_batch = create_scheduler(optimizer, config, len(train_loader))
+    # get scheduler using new function
+    scheduler, step_per_batch = get_scheduler(optimizer, config, len(train_loader))
 
     best_acc = 0.0
     epochs_no_improve = 0

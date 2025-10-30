@@ -9,6 +9,7 @@ import logging
 import numpy as np
 import torch
 import random
+from torch.amp import autocast
 
 def setup_logger(name, log_file, level=logging.INFO):
     """
@@ -312,6 +313,37 @@ def validate_config(config, required_keys=None, logger=None):
         logger.info("Configuration validation passed")
 
     return True
+
+@torch.no_grad()
+def evaluate(model, data_loader, criterion, device, use_amp=True, logger=None, epoch=None, num_epochs=None, prefix="[Eval ]"):
+    """
+    Evaluate the model on a dataset.
+    """
+    model.eval()
+    loss_sum = 0.0
+    correct = 0
+    total = 0
+
+    for inputs, targets in data_loader:
+        inputs, targets = inputs.to(device, non_blocking=True), targets.to(device, non_blocking=True)
+
+        if use_amp:
+            with autocast('cuda'):
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+        else:
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+
+        loss_sum += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+
+    avg_loss = loss_sum / len(data_loader)
+    accuracy = 100. * correct / total
+    
+    return avg_loss, accuracy
 
 
 
