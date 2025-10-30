@@ -95,11 +95,7 @@ This implementation provides a **realistic and reproducible evaluation** of LiRA
 
    Runs online, offline, and global variants; saves metrics and ROC curves.
 
-3. **Train and Attack Results**
-
-   ```
-Look at OUTPUTS.md
-   ```
+3. **Train and Attack Results (Look at OUTPUTS.md)**
 
 ---
 
