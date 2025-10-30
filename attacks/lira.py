@@ -19,7 +19,7 @@ matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
 from utils.data_utils import load_dataset
-from utils.utils import load_checkpoint_safe
+from utils.common import load_checkpoint_safe
 from utils.numerical_utils import stable_softmax, stable_logsumexp, compute_cross_entropy_loss
 from analysis_results.metrics import compute_roc_metrics, compute_tpr_at_fpr, compute_precision
 

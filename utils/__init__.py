@@ -8,7 +8,7 @@ This package contains:
 - train_utils: Training functions, optimizers, and augmentation utilities
 """
 
-from utils.utils import (
+from utils.common import (
     setup_logger,
     set_seed,
     save_config,
