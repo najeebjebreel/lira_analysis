@@ -1,7 +1,8 @@
 """
-Main experiment runner for the unified LiRA and RMIA implementation.
+Main training script for LiRA membership inference experiments.
 
-This module provides functions to run experiments with both LiRA and RMIA attacks.
+This module trains multiple shadow models on different subsets of data,
+which are later used to perform membership inference attacks.
 """
 
 import os
@@ -175,8 +176,6 @@ def main():
     writer = None  # Initialize TensorBoard writer if needed
     # Train shadow models
     for i in range(config.get('training', {}).get('num_shadow_models', 1)):
-        # if i < 108:
-        #     continue
         logger.info(f"Training shadow model {i}...")
         shadow_model_dir = os.path.join(experiment_dir, f'model_{i}')
         os.makedirs(shadow_model_dir, exist_ok=True)
