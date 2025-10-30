@@ -30,9 +30,9 @@ experiments/{dataset}/{model}/{timestamp}/
 │   ├── best_model.pth                    # Best checkpoint (lowest val loss)
 │   ├── checkpoint_epochN.pth             # Per-epoch checkpoints
 │   ├── logits/
-│   │   └── logits.npy                    # [N, 1, A, C] model outputs
+│   │   └── logits.npy                    # [N, 1, A, C] model outputs (A is number of augmentations, C is number of classes)
 │   └── scores/
-│       └── scores.npy                    # [N] membership scores
+│       └── scores.npy                    # [N, A] membership scores
 │
 ├── model_1/, model_2/, ..., model_M-1/   # Additional shadow models
 │
@@ -81,20 +81,6 @@ print(keep_indices[0].sum())  # ~30000 (about 50% of data)
 - Data augmentations
 - Random seed
 
-**Example:**
-```yaml
-dataset:
-  name: cifar10
-  num_classes: 10
-training:
-  num_shadow_models: 256
-  epochs: 100
-  batch_size: 256
-model:
-  architecture: resnet18
-seed: 42
-```
-
 ### `model_i/best_model.pth`
 
 **Format:** PyTorch checkpoint dictionary
@@ -126,11 +112,8 @@ model.load_state_dict(checkpoint.get('state_dict', checkpoint))
 
 **Description:** Raw model outputs (logits) before softmax. Generated with data augmentations for robustness.
 
-**Augmentation count depends on config:**
-- No augmentation: A = 1
-- Horizontal flip only: A = 2
-- Spatial shift (s=2) + flip: A = 2 × (2×2+1) = 10
-- Spatial shift (s=4, stride=2) + flip: A = 2 × (5×5) = 50
+**Augmentation count depends on config**
+
 
 **Example:**
 ```python
@@ -142,7 +125,7 @@ original_logits = logits[:, 0, 0, :]  # [N, C]
 
 ### `model_i/scores/scores.npy`
 
-**Shape:** `[N]`
+**Shape:** `[N, A]`
 
 **Type:** `float64`
 
@@ -156,7 +139,7 @@ Where probabilities are averaged over augmentations. **Higher scores indicate hi
 **Example:**
 ```python
 scores = np.load('model_0/scores/scores.npy')
-print(scores.shape)  # (60000,)
+print(scores.shape)  # (60000,A)
 print(scores.mean(), scores.std())  # Mean and std of scores
 ```
 
@@ -506,38 +489,7 @@ for i in range(num_models):
     del scores  # Free memory
 ```
 
----
-
-## Reference: Complete File List
-
-| File | Size (CIFAR-10, 256 models) | Required | Description |
-|------|-----|----------|-------------|
-| `keep_indices.npy` | 2 MB | ✅ Yes | Training membership |
-| `train_config.yaml` | <1 KB | ✅ Yes | Training config |
-| `attack_config.yaml` | <1 KB | ✅ Yes | Attack config |
-| `model_i/best_model.pth` | ~45 MB × 256 | ✅ Yes | Model checkpoints |
-| `model_i/logits/logits.npy` | ~230 MB × 256 | ❌ No | Can regenerate |
-| `model_i/scores/scores.npy` | ~500 KB × 256 | ✅ Yes | Membership scores |
-| `membership_labels.npy` | 2 MB | ✅ Yes | Ground truth |
-| `*_scores_leave_one_out.npy` | ~120 MB × 5 | ✅ Yes | Attack scores |
-| `*.csv` | <1 MB total | ✅ Yes | Metrics tables |
-| `*.pdf` | <1 MB total | ⚠️ Optional | Visualizations |
-
-**Total essential storage:** ~13 GB (with logits: ~73 GB)
 
 ---
 
-## Contributing
 
-To add new output formats or metrics:
-
-1. Update this documentation
-2. Follow naming conventions (`*_leave_one_out.npy` for LOO files)
-3. Use consistent data types and shapes
-4. Add loading examples
-5. Update the reference table
-
----
-
-**Last Updated:** 2024
-**Version:** 1.0
