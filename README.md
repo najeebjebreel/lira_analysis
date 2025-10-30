@@ -186,5 +186,4 @@ Released under the **MIT License** — see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-We thank the original LiRA authors and the open-source community (PyTorch, TIMM, Hydra, etc.).
-Please use this code **for research and educational purposes only** and follow appropriate ethical and privacy guidelines.
+We thank the original LiRA authors and the open-source community (PyTorch, TIMM, etc.).
