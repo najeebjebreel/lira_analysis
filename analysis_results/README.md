@@ -4,19 +4,16 @@ This directory contains Jupyter notebooks and scripts for analyzing LiRA attack 
 
 ## Structure
 
-The analysis code is organized into **reusable Python modules** and **standalone scripts**:
-
 - **Modules** (`analysis_utils.py`, `metrics.py`, `visualization.py`):
   - Reusable functions for common analysis tasks
   - Import these in your own scripts and notebooks
-  - Well-documented with docstrings and type hints
 
 - **Scripts** (`threshold_dist.py`, `compare_attacks.py`, `vulnerability_analysis.py`):
   - Ready-to-run analysis pipelines
   - Command-line interfaces with argparse
   - Use these for quick analysis without writing code
 
-- **Notebooks** (`post_analysis.ipynb`, `plot_benchmark+distribution.ipynb`, etc.):
+- **Notebooks** (`post_analysis.ipynb`, `plot_benchmark_distribution.ipynb`, etc.):
   - Interactive exploration and visualization
   - Can leverage the reusable modules
   - Good for custom analysis and paper figures
@@ -37,7 +34,7 @@ The analysis code is organized into **reusable Python modules** and **standalone
 
 ---
 
-#### `plot_benchmark+distribution.ipynb`
+#### `plot_benchmark_distribution.ipynb`
 **Purpose**: Compare attack performance and visualize score distributions
 
 **What it does**:
@@ -311,5 +308,6 @@ python threshold_dist.py --experiment_dir PATH --target_fpr 0.001
 3. Calibrate attack parameters
 
 ---
+
 
 
