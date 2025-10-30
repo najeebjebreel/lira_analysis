@@ -126,9 +126,11 @@ lira_analysis/
 | Dataset              | Type    | Classes  | Samples | Models                                      |
 | -------------------- | ------- | -------- | ------- | --------------------------------------------|
 | CIFAR-10 / CIFAR-100 | Image   | 10 / 100 | 60,000  | ResNet-18, WideResNet, EfficientNet-V2 (TL) |
-| GTSRB                | Image   | 43       | ~51,000 | ResNet-18, , EfficientNet-V2 (TL)                               |
+| GTSRB                | Image   | 43       | ~51,000 | ResNet-18, , EfficientNet-V2 (TL)           |
 | Purchase-100         | Tabular | 100      | 197,324 | FCN                                         |
 
+All image datasets will be downloaded automatically. 
+Purchase can be downloaded to this folder via this link https://drive.proton.me/urls/25C1HJ14S8#3uJjfOAAPblu. Please put it inside a folder called purchase in the data folder.
 ---
 
 ## Attack Variants
