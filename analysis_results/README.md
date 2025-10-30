@@ -34,7 +34,6 @@ The analysis code is organized into **reusable Python modules** and **standalone
 - Plots TPR as a function of loss ratio
 - Helps understand which samples are easier/harder to attack
 
-**When to use**: After running attacks, to understand attack behavior on different samples
 
 ---
 
@@ -47,7 +46,6 @@ The analysis code is organized into **reusable Python modules** and **standalone
 - Visualizes score distributions for members vs non-members
 - Generates publication-ready figures
 
-**When to use**: For final analysis and paper figures
 
 ---
 
@@ -59,8 +57,6 @@ The analysis code is organized into **reusable Python modules** and **standalone
 - Computes agreement matrices and correlation scores
 - Identifies samples where attacks disagree (interesting edge cases)
 - Visualizes agreement patterns
-
-**When to use**: To understand how different attacks complement each other
 
 ---
 
@@ -83,7 +79,6 @@ The analysis code is organized into **reusable Python modules** and **standalone
 - **LaTeX table generation:**
   - Creates publication-ready tables comparing benchmarks
   - Includes reduction factors (×N) vs baseline
-  - Formatted for academic papers
 
 **Outputs generated:**
 - `per_model_metrics_two_modes.csv`: Detailed per-model metrics
@@ -91,14 +86,6 @@ The analysis code is organized into **reusable Python modules** and **standalone
 - `samples_vulnerability_ranked_online_shadow_0p001pct.csv`: All samples ranked by vulnerability
 - `samples_highly_vulnerable_online_shadow_0p001pct.csv`: Subset of highly vulnerable samples
 - `top20_vulnerable_online_shadow_0p001pct.png`: Grid visualization of top 20 vulnerable samples
-- LaTeX tables (printed to output, ready to copy into paper)
-
-**When to use**:
-- For paper submissions requiring detailed metrics
-- To understand which samples are most vulnerable to membership inference
-- To compare attack performance across different configurations
-- To evaluate precision under realistic prior assumptions
-- To generate publication-ready figures and tables
 
 ---
 
@@ -163,30 +150,6 @@ from analysis_results.visualization import plot_roc_curves, setup_paper_style
 setup_paper_style()
 roc_data = {'LiRA (online)': (fpr, tpr, auc)}
 fig = plot_roc_curves(roc_data, save_path='roc_curves.pdf')
-```
-
-#### `latex_utils.py`
-**Purpose**: LaTeX table generation for research papers
-
-**Key functions**:
-- `format_mean_std()`: Format values as "mean ± std" for LaTeX
-- `format_multiplier()`: Format reduction factors as "(×5.2)"
-- `create_metrics_table()`: Generate metrics table for single benchmark
-- `create_comparison_table()`: Generate multi-benchmark comparison table
-- `save_latex_table()`: Save table to .tex file
-
-**Usage example**:
-```python
-from analysis_results.latex_utils import create_metrics_table
-
-latex_str = create_metrics_table(
-    results_df=df,
-    attacks=['LiRA (online)', 'LiRA (offline)'],
-    target_fprs=[0.001, 0.01],
-    caption='Attack performance on CIFAR-10',
-    label='tab:results'
-)
-print(latex_str)  # Ready to copy into paper
 ```
 
 ---
@@ -349,144 +312,3 @@ python threshold_dist.py --experiment_dir PATH --target_fpr 0.001
 
 ---
 
-## Adding Custom Analysis
-
-To add your own analysis, you can leverage the reusable modules:
-
-### Option 1: Using the Modules (Recommended)
-
-```python
-import sys
-sys.path.append('..')  # If running from analysis_results directory
-
-from analysis_results.analysis_utils import load_attack_scores, load_membership_labels
-from analysis_results.metrics import compute_roc_metrics, compute_tpr_at_fpr
-from analysis_results.visualization import plot_roc_curves, setup_paper_style
-import matplotlib.pyplot as plt
-
-# Setup publication-quality plots
-setup_paper_style()
-
-# Load experiment results using utility functions
-experiment_dir = "experiments/cifar10/resnet18/2024-01-01_0000"
-scores_dict = load_attack_scores(experiment_dir, mode='leave_one_out')
-labels = load_membership_labels(experiment_dir)
-
-# Compute metrics using reusable functions
-fpr, tpr, thresholds, auc, _ = compute_roc_metrics(
-    scores_dict['LiRA (online)'].flatten(),
-    labels.flatten()
-)
-
-# Visualize using plotting functions
-roc_data = {'LiRA (online)': (fpr, tpr, auc)}
-fig = plot_roc_curves(roc_data, save_path=f"{experiment_dir}/custom_roc.pdf")
-
-print(f"AUC: {auc:.4f}")
-```
-
-### Option 2: Manual Implementation
-
-```python
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-# Load experiment results manually
-experiment_dir = "experiments/cifar10/resnet18/2024-01-01_0000"
-membership_labels = np.load(f"{experiment_dir}/membership_labels.npy")
-online_scores = np.load(f"{experiment_dir}/online_scores_leave_one_out.npy")
-
-# Your custom analysis here
-# ...
-
-# Save results
-plt.savefig(f"{experiment_dir}/custom_analysis.pdf")
-results_df.to_csv(f"{experiment_dir}/custom_results.csv")
-```
-
-### Creating Standalone Analysis Scripts
-
-Follow the pattern in `compare_attacks.py` or `vulnerability_analysis.py`:
-
-1. Import from analysis modules
-2. Add argparse for command-line interface
-3. Implement main analysis function
-4. Save outputs with descriptive names
-5. Add docstrings and usage examples
-
----
-
-## Visualization Best Practices
-
-### Color Schemes
-
-Use colorblind-safe palettes:
-- **Okabe-Ito**: Default in `threshold_dist.py`
-- **Viridis**: Good for continuous data
-- **Seaborn colorblind**: Safe categorical palette
-
-### Figure Formats
-
-- **PDF**: Vector graphics for papers (recommended)
-- **PNG**: Raster graphics for presentations (use high DPI, e.g., 300)
-- **SVG**: Editable vector graphics
-
-### Font Compatibility
-
-All scripts set `matplotlib.rcParams['pdf.fonttype'] = 42` for PDF font embedding compatibility.
-
----
-
-## Troubleshooting
-
-### Import Errors
-
-If you get import errors in notebooks:
-```python
-import sys
-sys.path.append('..')  # Add parent directory to path
-from utils.utils import *
-from attacks.lira import LiRA
-```
-
-### Memory Issues
-
-For large experiments (256+ shadow models):
-- Load data incrementally
-- Use `np.load(..., mmap_mode='r')` for memory mapping
-- Clear variables after use: `del variable; gc.collect()`
-
-### Missing Data
-
-Ensure you've run both training and attack scripts before analysis:
-1. `python train.py --config CONFIG`
-2. `python attack.py --config CONFIG`
-
----
-
-## Citation
-
-If you use these analysis scripts in your research, please cite the main paper (see main README.md).
-
----
-
-## Contributing
-
-To contribute new analysis notebooks or scripts:
-
-1. Follow the naming convention: `descriptive_name.ipynb` or `descriptive_name.py`
-2. Add clear documentation at the top of the notebook/script
-3. Include example usage and expected outputs
-4. Update this README with your additions
-5. Submit a pull request
-
----
-
-## Support
-
-For issues with analysis scripts:
-- Check main README.md for general setup
-- Ensure all dependencies are installed
-- Verify experiment results are in the expected format
-- Open an issue on GitHub if problems persist
