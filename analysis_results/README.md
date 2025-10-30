@@ -14,23 +14,11 @@ This directory contains Jupyter notebooks and scripts for analyzing LiRA attack 
 #### `plot_benchmark_distribution.ipynb`
 **Purpose**: Compare attack performance and visualize score distributions
 
-**What it does**:
-- Loads results from multiple attack variants
-- Creates benchmark comparison plots
-- Visualizes score distributions for members vs non-members
-- Generates publication-ready figures
-
-
 ---
 
 #### `agreement.ipynb`
 **Purpose**: Analyze agreement between different attack variants
 
-**What it does**:
-- Compares predictions across attack variants (online, offline, global)
-- Computes agreement matrices and correlation scores
-- Identifies samples where attacks disagree (interesting edge cases)
-- Visualizes agreement patterns
 
 ---
 
@@ -79,13 +67,6 @@ The analysis code has been refactored into reusable modules:
 - `rank_samples_by_vulnerability()`: Rank samples by attack vulnerability
 - `get_highly_vulnerable_samples()`: Filter highly vulnerable samples
 
-**Usage example**:
-```python
-from analysis_results.analysis_utils import load_attack_scores, load_membership_labels
-
-scores_dict = load_attack_scores('experiments/cifar10/resnet18/...')
-labels = load_membership_labels('experiments/cifar10/resnet18/...')
-```
 
 #### `metrics.py`
 **Purpose**: ROC curve computation and evaluation metrics
@@ -97,13 +78,6 @@ labels = load_membership_labels('experiments/cifar10/resnet18/...')
 - `compute_confusion_matrix_at_threshold()`: Get confusion matrix at threshold
 - `compute_median_and_rmad()`: Robust statistics for threshold distributions
 
-**Usage example**:
-```python
-from analysis_results.metrics import compute_roc_metrics, compute_tpr_at_fpr
-
-fpr, tpr, thresholds, auc, _ = compute_roc_metrics(scores, labels)
-tpr_val, threshold = compute_tpr_at_fpr(fpr, tpr, thresholds, target_fpr=0.01)
-```
 
 #### `visualization.py`
 **Purpose**: Publication-quality plotting functions
@@ -113,18 +87,6 @@ tpr_val, threshold = compute_tpr_at_fpr(fpr, tpr, thresholds, target_fpr=0.01)
 - `plot_score_distributions()`: Histogram of member vs non-member scores
 - `plot_threshold_distribution_boxplot()`: Box plots of thresholds across models
 - `plot_vulnerable_samples_grid()`: Grid visualization of vulnerable samples
-- `setup_paper_style()`: Configure matplotlib for publication
-
-**Color palette**: Colorblind-safe Okabe-Ito palette
-
-**Usage example**:
-```python
-from analysis_results.visualization import plot_roc_curves, setup_paper_style
-
-setup_paper_style()
-roc_data = {'LiRA (online)': (fpr, tpr, auc)}
-fig = plot_roc_curves(roc_data, save_path='roc_curves.pdf')
-```
 
 ---
 
@@ -137,18 +99,7 @@ fig = plot_roc_curves(roc_data, save_path='roc_curves.pdf')
 - Loads threshold information from leave-one-out evaluation
 - Creates box plots showing threshold distribution for each attack variant
 - Uses colorblind-safe Okabe-Ito palette
-- Saves publication-ready figures
-
-**Usage**:
-```bash
-python threshold_dist.py --experiment_dir PATH_TO_EXPERIMENT \
-                         --target_fpr 0.001 \
-                         --output_dir custom_output
-```
-
-**Outputs**:
-- `threshold_distribution.pdf`: Box plots of thresholds
-- `threshold_statistics.csv`: Summary statistics
+- Saves figures
 
 ---
 
@@ -285,6 +236,7 @@ python threshold_dist.py --experiment_dir PATH --target_fpr 0.001
 3. Calibrate attack parameters
 
 ---
+
 
 
 
