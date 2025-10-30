@@ -158,7 +158,6 @@ All post-attack analyses are in [`analysis_results/`](analysis_results/), which 
 | `agreement.ipynb`                   | Cross-attack agreement analysis           |
 | `post_analysis.ipynb`               | Full paper figure and table generation    |
 
-Each analysis script produces publication-quality figures and LaTeX-ready tables (AUC, TPR, PPV, thresholds).
 For details, see [`analysis_results/README.md`](analysis_results/README.md).
 
 ---
