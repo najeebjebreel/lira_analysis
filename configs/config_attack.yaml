@@ -37,6 +37,6 @@ visualize: true
 experiment:
   log_level: info
   checkpoint_dir: experiments/cifar10/resnet18/2025-10-22_2249  #Options: none to start from scratch or directory to load checkpoints for resume training and/or attack (e.g., experiments/cifar10/wrn28-2/2025-05-12_0056)
-  overwrite_logit: false  # Whether to overwrite logits 
+  overwrite_logits: false  # Whether to overwrite logits
   overwrite_scores: false  # Whether to overwrite scores
 

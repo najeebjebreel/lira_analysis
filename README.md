@@ -44,12 +44,12 @@ This implementation provides a **realistic and reproducible evaluation** of LiRA
 - 16 GB+ RAM (32 GB recommended for large grids)
 
 ```bash
-git clone https://github.com/najeebjebreel/lira-analysis.git
-cd lira-analysis
+git clone https://github.com/najeebjebreel/lira_analysis.git
+cd lira_analysis
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-````
+```
 
 ---
 
