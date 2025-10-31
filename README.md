@@ -159,7 +159,9 @@ For details, see [`comprehensive_analysis/README.md`](comprehensive_analysis/REA
 ### 📊 CIFAR-10 under Target vs. Shadow Calibration
 
 *Target FPR = 0.001 %*
+
 <div align="center">
+  
 | **Benchmark**                              | **Attack**   |      **TPR′ (%)** |  **FPR′ (%)** |  **PPV @ π = 1%** | **PPV @ π = 10%** | **PPV @ π = 50%** |
 | :----------------------------------------- | :----------- | ----------------: | ------------: | ----------------: | ----------------: | ----------------: |
 | ***Target-based thresholds (optimistic)*** |              |                   |               |                   |                   |                   |
@@ -180,7 +182,9 @@ For details, see [`comprehensive_analysis/README.md`](comprehensive_analysis/REA
 |                                            | Online (FV)  |     0.084 ± 0.021 | 0.002 ± 0.003 |     59.25 ± 42.01 |     83.54 ± 18.38 |      97.22 ± 3.42 |
 |                                            | Offline      |     0.027 ± 0.085 | 0.026 ± 0.085 |     32.73 ± 46.50 |     37.30 ± 43.64 |     56.17 ± 36.15 |
 |                                            | Offline (FV) |     0.044 ± 0.089 | 0.033 ± 0.089 |     42.39 ± 48.08 |     52.67 ± 40.53 |     78.43 ± 21.99 |
+
 </div>
+
 **Notes:**
 
 * *FV = Fixed Variance variant*
