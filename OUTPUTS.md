@@ -57,21 +57,10 @@ experiments/{dataset}/{model}/{timestamp}/
 
 **Shape:** `[M, N]` where M = number of shadow models, N = dataset size
 
-**Type:** `bool` (numpy boolean array)
-
 **Description:** Training membership matrix. `keep_indices[i, j] = True` means sample `j` was in the training set of shadow model `i`.
 
-**Example:**
-```python
-import numpy as np
-keep_indices = np.load('experiments/.../keep_indices.npy')
-print(keep_indices.shape)  # (256, 60000) for 256 models on CIFAR-10
-print(keep_indices[0].sum())  # ~30000 (about 50% of data)
-```
 
 ### `train_config.yaml`
-
-**Format:** YAML
 
 **Description:** Complete training configuration including:
 - Dataset settings
@@ -88,12 +77,6 @@ print(keep_indices[0].sum())  # ~30000 (about 50% of data)
 - `state_dict` or `model_state_dict`: Model weights
 - Optionally: `optimizer_state_dict`, `epoch`, `loss`, etc.
 
-**Loading:**
-```python
-import torch
-checkpoint = torch.load('model_0/best_model.pth')
-model.load_state_dict(checkpoint.get('state_dict', checkpoint))
-```
 
 ---
 
@@ -107,39 +90,16 @@ model.load_state_dict(checkpoint.get('state_dict', checkpoint))
 - A = number of augmentations per sample
 - C = number of classes
 
-**Type:** `float32`
-
 **Description:** Raw model outputs (logits) before softmax. Generated with data augmentations for robustness.
 
-**Augmentation count depends on config**
-
-
-**Example:**
-```python
-logits = np.load('model_0/logits/logits.npy')
-print(logits.shape)  # (60000, 1, 10, 10) for CIFAR-10 with augmentations
-# Extract original (non-augmented) logits
-original_logits = logits[:, 0, 0, :]  # [N, C]
-```
 
 ### `model_i/scores/scores.npy`
 
 **Shape:** `[N, A]`
 
-**Type:** `float64`
-
 **Description:** Per-sample membership scores computed as:
 ```
 score = log(P_true_class) - log(P_other_classes)
-```
-
-Where probabilities are averaged over augmentations. **Higher scores indicate higher likelihood of membership.**
-
-**Example:**
-```python
-scores = np.load('model_0/scores/scores.npy')
-print(scores.shape)  # (60000,A)
-print(scores.mean(), scores.std())  # Mean and std of scores
 ```
 
 ---
@@ -173,26 +133,6 @@ All attack score files have the same format:
 4. **`offline_fixed_scores_leave_one_out.npy`**: LiRA offline with fixed variance
 5. **`global_scores_leave_one_out.npy`**: Global threshold baseline
 
-**Example:**
-```python
-import numpy as np
-
-# Load attack scores and labels
-labels = np.load('membership_labels.npy')
-online_scores = np.load('online_scores_leave_one_out.npy')
-offline_scores = np.load('offline_scores_leave_one_out.npy')
-
-print(online_scores.shape)  # (256, 60000)
-
-# Analyze scores for first target model
-target_idx = 0
-true_members = labels[target_idx]
-member_scores = online_scores[target_idx][true_members]
-non_member_scores = online_scores[target_idx][~true_members]
-
-print(f"Member scores: {member_scores.mean():.3f} ± {member_scores.std():.3f}")
-print(f"Non-member scores: {non_member_scores.mean():.3f} ± {non_member_scores.std():.3f}")
-```
 
 ---
 
@@ -206,13 +146,6 @@ print(f"Non-member scores: {non_member_scores.mean():.3f} ± {non_member_scores.
 - `AUC`: Area under ROC curve (%)
 - `TPR@X%FPR`: True positive rate at X% false positive rate
 - `Prec@X%FPR`: Precision at X% false positive rate
-
-**Example:**
-```python
-import pandas as pd
-df = pd.read_csv('attack_results_single.csv')
-print(df[['Attack', 'AUC', 'TPR@0.0010%FPR']])
-```
 
 ### `attack_results_leave_one_out_summary.csv`
 
@@ -238,14 +171,6 @@ print(df[['Attack', 'AUC', 'TPR@0.0010%FPR']])
 
 **Description:** Per-target, per-attack threshold information for detailed analysis.
 
-**Example:**
-```python
-df = pd.read_csv('threshold_info_leave_one_out.csv')
-# Analyze threshold stability for online attack
-online = df[df['attack'] == 'LiRA (online)']
-print(f"Threshold range: {online['threshold'].min():.3f} - {online['threshold'].max():.3f}")
-print(f"Threshold std: {online['threshold'].std():.3f}")
-```
 
 ### `train_test_stats.csv`
 
@@ -264,56 +189,6 @@ print(f"Threshold std: {online['threshold'].std():.3f}")
 
 ---
 
-## Loading and Using Outputs
-
-### Complete Analysis Example
-
-```python
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc
-
-# Load experiment results
-exp_dir = "experiments/cifar10/resnet18/2024-01-01_0000"
-
-# Load leave-one-out results
-labels = np.load(f"{exp_dir}/membership_labels.npy")
-online_scores = np.load(f"{exp_dir}/online_scores_leave_one_out.npy")
-summary = pd.read_csv(f"{exp_dir}/attack_results_leave_one_out_summary.csv")
-
-# Analyze last target model
-target_idx = -1
-y_true = labels[target_idx]
-y_score = online_scores[target_idx]
-
-# Compute ROC curve
-fpr, tpr, thresholds = roc_curve(y_true, y_score)
-roc_auc = auc(fpr, tpr)
-
-# Plot
-plt.figure(figsize=(8, 6))
-plt.plot(fpr, tpr, label=f'AUC = {roc_auc:.3f}')
-plt.xscale('log')
-plt.yscale('log')
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title(f'ROC Curve - Target Model {target_idx}')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.savefig(f'{exp_dir}/custom_roc_model_{target_idx}.pdf')
-plt.show()
-
-# Find TPR at specific FPR
-target_fpr = 0.001  # 0.1% FPR
-idx = np.where(fpr <= target_fpr)[0]
-if len(idx) > 0:
-    tpr_at_fpr = tpr[idx[-1]]
-    print(f"TPR @ {target_fpr*100}% FPR: {tpr_at_fpr*100:.2f}%")
-```
-
----
 
 
 
