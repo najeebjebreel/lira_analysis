@@ -14,8 +14,8 @@ It re-evaluates the Likelihood Ratio Attack (LiRA) under **practical training an
 
 ## Overview
 
-**Membership Inference Attacks (MIAs)** test whether a data point was used to train a model.  
-**LiRA** is a strong black-box MIA when many shadow models are available (e.g., M=256).  
+**Membership Inference Attacks (MIAs)** aim to infer whether a data point was used to train a model.  
+**LiRA** is widely regarded as the state-of-the-art black-box MIA when many shadow models are available (e.g., M=256).  
 However, prior work often **overestimated attack success** by:
 - Evaluating overconfident models,
 - Calibrating thresholds on target data,
