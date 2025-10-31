@@ -176,4 +176,5 @@ Released under the **MIT License** — see [LICENSE](LICENSE).
 ## Acknowledgments
 
 We thank the original LiRA authors and the open-source community (PyTorch, TIMM, etc.).
+
 This work was partly supported by the Government of Catalonia (ICREA Acad`emia Prizes to D. S´anchez and J. Domingo-Ferrer, and grant 2021SGR-00115), MCIN/AEI under grant PID2024-157271NB-I00 “CLEARING-IT”, and the EU’s NextGenerationEU/PRTR via INCIBE (project “HERMES” and INCIBE-URV cybersecurity chair).
