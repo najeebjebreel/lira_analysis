@@ -164,16 +164,6 @@ For details, see [`analysis_results/README.md`](analysis_results/README.md).
 
 ## Citation
 
-If you use this code in your research, please cite:
-
-```bibtex
-@inproceedings{Jebreel2025LiRARealistic,
-  title     = {Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions},
-  author    = {Najeeb Jebreel, Mona Khalil, David Sánchez, and Josep Domingo-Ferrer},
-  booktitle = {Under Review},
-  year      = {2025}
-}
-```
 
 ---
 
