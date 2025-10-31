@@ -192,7 +192,7 @@ For details, see [`comprehensive_analysis/README.md`](comprehensive_analysis/REA
 
 ### 🧩 Figure 1 — Reproducibility of LiRA Membership Inferences
 
-![Reproducibility, stability, and coverage vs seeds, training variations, and runs (TP≥1)](figures/reproducibility_cifar10.png)
+![Reproducibility, stability, and coverage vs seeds, training variations, and runs (TP≥1)](reproducibility_cifar10.png)
 
 **Caption:**
 *as the number of combined runs increases, the intersection of vulnerable samples (those identified in all runs) shrinks
