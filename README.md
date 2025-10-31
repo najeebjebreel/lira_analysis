@@ -154,7 +154,9 @@ For details, see [`comprehensive_analysis/README.md`](comprehensive_analysis/REA
 
 
 
-## Example Results: 📊 CIFAR-10 under Target vs. Shadow Calibration
+## Example Results: 
+
+### 📊 CIFAR-10 under Target vs. Shadow Calibration
 
 *Target FPR = 0.001 %*
 
@@ -190,7 +192,7 @@ For details, see [`comprehensive_analysis/README.md`](comprehensive_analysis/REA
 
 ---
 
-### 🧩 Figure 1 — Reproducibility of LiRA Membership Inferences
+### 🧩 Reproducibility of LiRA Membership Inferences
 
 ![Reproducibility, stability, and coverage vs seeds, training variations, and runs (TP≥1)](reproducibility_cifar10.png)
 
