@@ -1,7 +1,5 @@
 """
 Main experiment runner for LiRA implementation.
-
-This module provides functions to run experiments with both LiRA and RMIA attacks.
 """
 
 import os
@@ -101,4 +99,5 @@ def main():
     logger.info("Attacks completed successfully")
 
 if __name__ == '__main__':
+
     main()
