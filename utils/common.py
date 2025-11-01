@@ -1,5 +1,5 @@
 """
-Logging and utility functions for the unified LiRA and RMIA implementation.
+Logging and utility functions.
 """
 
 import os
