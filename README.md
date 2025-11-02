@@ -108,14 +108,7 @@ lira_analysis/
 ├── configs/                  # YAML configs (training / attack)
 ├── attacks/                  # LiRA implementations
 ├── utils/                    # Helpers (I/O, logging, models, seeding, etc.)
-├── analysis_results/         # Analysis notebooks & scripts
-│   ├── threshold_dist.py
-│   ├── compare_attacks.py
-│   ├── vulnerability_analysis.py
-│   ├── loss_ratio_tpr.ipynb
-│   ├── plot_benchmark_distribution.ipynb
-│   ├── agreement.ipynb
-│   └── post_analysis.ipynb
+├── comprehensive_analysis/         # Analysis notebooks & scripts
 └── experiments/              # Auto-generated outputs
 ```
 
@@ -144,7 +137,7 @@ lira_analysis/
 
 ---
 
-## Analysis and Visualization
+## Comprehensive Analyses
 
 All post-attack comprehensive analyses are in [`comprehensive_analysis/`](comprehensive_analysis/), which reproduces our main rresults, and includes code scripts and interactive notebooks.
 
