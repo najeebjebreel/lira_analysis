@@ -14,6 +14,7 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 import torch
+from torch.utils.data import Subset
 
 # Add the project root to the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -65,6 +66,15 @@ def setup_experiment(config):
     logger.info(f"Saved configuration to {experiment_dir}/train_config.yaml")
     
     return experiment_dir, logger, device
+
+def random_subset(dataset, fraction=0.33, seed=None):
+    """Return a random subset containing `fraction` of dataset elements."""
+    if seed is not None:
+        np.random.seed(seed)
+    n_total = len(dataset)
+    n_subset = int(n_total * fraction)
+    subset_indices = np.random.choice(n_total, n_subset, replace=False)
+    return Subset(dataset, subset_indices)
 
 def train_target_model(config, train_dataset, test_dataset, train_dataset_eval, device, shadow_model_dir, writer, logger):
     """
@@ -182,8 +192,11 @@ def main():
         shadow_train_dataset = TransformSubset(full_dataset, keep_indices[i], train_transform)
         shadow_test_dataset = TransformSubset(full_dataset, ~keep_indices[i], test_transform)
         shadow_train_dataset_eval = TransformSubset(full_dataset, keep_indices[i], test_transform)
+        shadow_test_dataset = random_subset(shadow_test_dataset, 0.333, seed=i)
+        shadow_train_dataset_eval = random_subset(shadow_train_dataset, 0.333, seed=i)
         logger.info(f"Shadow train dataset size: {len(shadow_train_dataset)}")
         logger.info(f"Shadow test dataset size: {len(shadow_test_dataset)}")
+        logger.info(f"Shadow train eval dataset size: {len(shadow_train_dataset_eval)}")
         shadow_model = train_target_model(config, shadow_train_dataset, shadow_test_dataset, shadow_train_dataset_eval, device, shadow_model_dir, writer, logger)
         logger.info(f"Shadow model {i} trained and saved to {shadow_model_dir}")
         # Add explicit cleanup
