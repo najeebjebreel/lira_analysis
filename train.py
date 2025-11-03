@@ -192,7 +192,7 @@ def main():
         shadow_train_dataset = TransformSubset(full_dataset, keep_indices[i], train_transform)
         shadow_test_dataset = TransformSubset(full_dataset, ~keep_indices[i], test_transform)
         shadow_train_dataset_eval = TransformSubset(full_dataset, keep_indices[i], test_transform)
-        shadow_test_dataset = random_subset(shadow_test_dataset, 0.333, seed=i)
+        shadow_test_dataset = random_subset(shadow_test_dataset, 0.333)
         shadow_train_dataset_eval = random_subset(shadow_train_dataset, 0.333, seed=i)
         logger.info(f"Shadow train dataset size: {len(shadow_train_dataset)}")
         logger.info(f"Shadow test dataset size: {len(shadow_test_dataset)}")
