@@ -438,14 +438,14 @@ class LiRA:
 
             # compute & log TPR@each target FPR
             for tfpr in tfprs:
-                idx   = np.where(fpr <= tfpr)[0]
+                idx = np.where(fpr <= tfpr)[0]
                 if idx.size > 0:
                     tpr_at = float(tpr[idx[-1]])
                     actual_fpr = float(fpr[idx[-1]])
                     prec = (self.prior*tpr_at) / (self.prior*tpr_at + (1-self.prior)*actual_fpr + 1e-30)
                 else:
                     tpr_at = 0.0
-                    actual_fpr = 0.0  # Add this line!
+                    actual_fpr = 0.0 
                     prec = 0.0
 
                 self.logger.info(
@@ -842,3 +842,4 @@ class LiRA:
         return preds, ans
 
     
+
