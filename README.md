@@ -14,8 +14,8 @@ It re-evaluates the Likelihood Ratio Attack (LiRA) under **practical training an
 
 ## Overview
 
-**Membership Inference Attacks (MIAs)** aim to infer whether a data point was used to train a model.  
-**LiRA** is widely regarded as the state-of-the-art black-box MIA when many shadow models are available (e.g., M=256).  
+**Membership Inference Attacks (MIAs)** test whether a data point was used to train a model.  
+**LiRA** is a strong black-box MIA when many shadow models are available (e.g., M=256).  
 However, prior work often **overestimated attack success** by:
 - Evaluating overconfident models,
 - Calibrating thresholds on target data,
@@ -108,7 +108,14 @@ lira_analysis/
 ├── configs/                  # YAML configs (training / attack)
 ├── attacks/                  # LiRA implementations
 ├── utils/                    # Helpers (I/O, logging, models, seeding, etc.)
-├── comprehensive_analysis/         # Analysis notebooks & scripts
+├── analysis_results/         # Analysis notebooks & scripts
+│   ├── threshold_dist.py
+│   ├── compare_attacks.py
+│   ├── vulnerability_analysis.py
+│   ├── loss_ratio_tpr.ipynb
+│   ├── plot_benchmark_distribution.ipynb
+│   ├── agreement.ipynb
+│   └── post_analysis.ipynb
 └── experiments/              # Auto-generated outputs
 ```
 
@@ -137,67 +144,13 @@ lira_analysis/
 
 ---
 
-## Comprehensive Analyses
+## Analysis and Visualization
 
 All post-attack comprehensive analyses are in [`comprehensive_analysis/`](comprehensive_analysis/), which reproduces our main rresults, and includes code scripts and interactive notebooks.
 
 For details, see [`comprehensive_analysis/README.md`](comprehensive_analysis/README.md).
 
 ---
-
-
-
-## Example Results: 
-
-### 📊 CIFAR-10 under Target vs. Shadow Calibration
-
-*Target FPR = 0.001 %*
-
-<div align="center">
-  
-| **Benchmark**                              | **Attack**   |      **TPR′ (%)** |  **FPR′ (%)** |  **PPV @ π = 1%** | **PPV @ π = 10%** | **PPV @ π = 50%** |
-| :----------------------------------------- | :----------- | ----------------: | ------------: | ----------------: | ----------------: | ----------------: |
-| ***Target-based thresholds (optimistic)*** |              |                   |               |                   |                   |                   |
-| **Baseline**                               | Online       | 3.956 ± 1.061 | 0.000 ± 0.000 | 100.00 ± 0.00 | 100.00 ± 0.00 | 100.00 ± 0.00 |
-|                                            | Online (FV)  | 2.876 ± 1.064 | 0.000 ± 0.000 | 100.00 ± 0.00 | 100.00 ± 0.00 | 100.00 ± 0.00 |
-|                                            | Offline      | 0.762 ± 0.348 | 0.000 ± 0.000 | 100.00 ± 0.00 | 100.00 ± 0.00 | 100.00 ± 0.00 |
-|                                            | Offline (FV) | 0.948 ± 0.526 | 0.000 ± 0.000 | 100.00 ± 0.00 | 100.00 ± 0.00 | 100.00 ± 0.00 |
-| ***Shadow-based thresholds (realistic)***  |              |                   |               |                   |                   |                   |
-| **Baseline**                               | Online       | 3.990 ± 0.161 | 0.002 ± 0.003 | 94.73 ± 6.10 | 99.46 ± 0.65 | 99.94 ± 0.07 |
-|                                            | Online (FV)  | 2.912 ± 0.142 | 0.002 ± 0.003 | 93.10 ± 8.03 | 99.26 ± 0.91 | 99.92 ± 0.10 |
-|                                            | Offline      | 0.713 ± 0.052 | 0.002 ± 0.003 | 81.31 ± 20.20 | 97.24 ± 3.33 | 99.67 ± 0.40 |
-|                                            | Offline (FV) | 0.918 ± 0.068 | 0.003 ± 0.005 | 81.13 ± 21.29 | 97.03 ± 4.06 | 99.64 ± 0.52 |
-| **AOF**                                    | Online       | 0.224 ± 0.482 | 0.033 ± 0.466 | 66.52 ± 34.88 | 90.93 ± 12.18 | 98.42 ± 5.25 |
-|                                            | Online (FV)  | 0.636 ± 0.101 | 0.002 ± 0.003 | 80.13 ± 21.52 | 96.69 ± 6.53 | 99.46 ± 2.99 |
-|                                            | Offline      | 0.290 ± 4.134 | 0.262 ± 4.138 | 55.17 ± 46.40 | 73.31 ± 28.84 | 93.37 ± 9.32 |
-|                                            | Offline (FV) | 0.310 ± 1.179 | 0.077 ± 1.192 | 67.96 ± 34.53 | 91.18 ± 12.71 | 98.36 ± 6.23 |
-| **AOF + TL**                               | Online       | 0.084 ± 0.048 | 0.017 ± 0.045 | 49.13 ± 44.90 | 70.75 ± 30.40 | 91.49 ± 12.35 |
-|                                            | Online (FV)  | 0.084 ± 0.021 | 0.002 ± 0.003 | 59.25 ± 42.01 | 83.54 ± 18.38 | 97.22 ± 3.42 |
-|                                            | Offline      | 0.027 ± 0.085 | 0.026 ± 0.085 | 32.73 ± 46.50 | 37.30 ± 43.64 | 56.17 ± 36.15 |
-|                                            | Offline (FV) | 0.044 ± 0.089 | 0.033 ± 0.089 | 42.39 ± 48.08 | 52.67 ± 40.53 | 78.43 ± 21.99 |
-</div>
-
-**Notes:**
-
-* *FV = Fixed Variance variant*
-* *AOF = Anti-Overfitting training*
-* *TL = Transfer Learning*
-* Values are **mean ± standard deviation** across 5 seeds.
-* *Target-based calibration* assumes perfect knowledge of the target model (**optimistic**).
-* *Shadow-based calibration* represents realistic, deployable attack conditions (**realistic**).
-
----
-
-### 🧩 Reproducibility of LiRA Membership Inferences
-
-![Reproducibility, stability, and coverage vs seeds, training variations, and runs (TP≥1)](reproducibility_cifar10.png)
-
-**Caption:**
-*as the number of combined runs increases, the intersection of vulnerable samples (those identified in all runs) shrinks
-sharply, while the union (samples identified in any run) expands rapidly.*
-
----
-
 
 ## Citation
 
@@ -214,4 +167,4 @@ Released under the **MIT License** — see [LICENSE](LICENSE).
 
 We thank the original LiRA authors and the open-source community (PyTorch, TIMM, etc.).
 
-This work was partly supported by the Government of Catalonia (ICREA Académia Prizes to D. Sánchez and J. Domingo-Ferrer, and grant 2021SGR-00115), MCIN/AEI under grant PID2024-157271NB-I00 “CLEARING-IT”, and the EU’s NextGenerationEU/PRTR via INCIBE (project “HERMES” and INCIBE-URV cybersecurity chair).
+This work was partly supported by the Government of Catalonia (ICREA Acad`emia Prizes to D. S´anchez and J. Domingo-Ferrer, and grant 2021SGR-00115), MCIN/AEI under grant PID2024-157271NB-I00 “CLEARING-IT”, and the EU’s NextGenerationEU/PRTR via INCIBE (project “HERMES” and INCIBE-URV cybersecurity chair).
