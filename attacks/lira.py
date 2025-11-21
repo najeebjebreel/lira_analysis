@@ -78,16 +78,17 @@ class LiRA:
         self.target_model = attack_cfg.get('target_model', 'best')
         self.prior = attack_cfg.get('prior', 0.5)
         
+        # Parse augmentation config with spatial parameters
         aug_cfg = self.config.get('inference_data_augmentations', {})
         self.aug_type = aug_cfg.get('mode', 'none')
-    
+
         # Initialize defaults (work for any mode)
         self.spatial_shift = 0
         self.spatial_stride = 1
         self.use_horizontal_flip = False
-    
+
         self.logger.info(f"Augmentation type: {self.aug_type}")
-    
+
         if self.aug_type == 'lira_aug':
             aug = int(aug_cfg.get('aug', 18))
             if aug == 0:
@@ -102,10 +103,7 @@ class LiRA:
                 self.use_horizontal_flip = True
             else:
                 raise ValueError("Unsupported LiRA aug value (use 0, 2, 18, or 50)")
-    
-        self.logger.info(f"Number of augmentations per sample: {((2 if self.use_horizontal_flip else 1) * ((2 * self.spatial_shift + 1) ** 2))}")
-        
-        self.logger.info(f"Augmentation type: {self.aug_type}")
+
         self.logger.info(f"Number of augmentations per sample: {((2 if self.use_horizontal_flip else 1) * ((2 * self.spatial_shift + 1) ** 2))}")
         
         # Get device
@@ -446,6 +444,7 @@ class LiRA:
                     tpr_at = 0.0
                     actual_fpr = 0.0 
                     prec = 0.0
+
 
                 self.logger.info(
                     f"{label}: AUC={auc_v*100:.2f}, Acc={acc_v*100:.2f}, "
@@ -839,7 +838,4 @@ class LiRA:
             preds.extend((-sc).mean(1))
             ans.extend(mask)
         return preds, ans
-
     
-
-
