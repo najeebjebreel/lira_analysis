@@ -4,167 +4,157 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This repository provides a **reproducible implementation** of our paper  
-***“Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions”***  
-(currently **under review** at a peer-reviewed conference).
-
-It re-evaluates the Likelihood Ratio Attack (LiRA) under **practical training and attack assumptions**, introducing analyses for **realistic threshold calibration**, **skewed membership priors**, and **per-sample reproducibility** of membership inference outcomes.
-
----
+Official implementation of **"Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions"** (under review).
 
 ## Overview
 
-**Membership Inference Attacks (MIAs)** test whether a data point was used to train a model.  
-**LiRA** is a strong black-box MIA when many shadow models are available (e.g., M=256).  
-However, prior work often **overestimated attack success** by:
-- Evaluating overconfident models,
-- Calibrating thresholds on target data,
-- Assuming balanced membership priors,
-- Ignoring reproducibility across runs.
+This repository re-evaluates the Likelihood Ratio Attack (LiRA) for membership inference under realistic assumptions. We show that prior work often overestimated attack success by using overconfident models, target-data threshold calibration, and balanced membership priors.
 
-This implementation provides a **realistic and reproducible evaluation** of LiRA with:
+**Key Contributions:**
+- Evaluation with **anti-overfitting** and **transfer learning** defenses
+- **Shadow-only threshold calibration** and precision under skewed priors (π ≤ 10%)
+- **Per-sample reproducibility analysis** across architectures and configurations
+- Comprehensive implementation with 5 LiRA variants
 
-- **Anti-Overfitting (AOF)** and **Transfer Learning (TL)** target models,  
-  preserving accuracy while reducing overconfidence.  
-- **Shadow-only threshold calibration** and **precision (PPV)** under realistic priors (π ≤ 10%).  
-- **Per-sample reproducibility analysis** across architectures, seeds, and configurations.  
-
-**Key findings:**
-- AOF and TL significantly **reduce LiRA’s success** while maintaining model utility.  
-- **Shadow-calibrated thresholds** and **skewed priors** substantially lower PPV.  
-- **Membership predictions are unstable per sample**; reproducibility requires support-qualified reporting.
-
+**Main Findings:**
+- Defenses reduce LiRA success while maintaining utility
+- Shadow-calibrated thresholds and realistic priors substantially lower precision
+- Membership predictions are unstable; reproducibility requires support thresholding
 
 ---
 
-## 🧩 Installation
+## Installation
 
-### 🌟 Recommended: Using Miniconda
+```bash
+git clone https://github.com/najeebjebreel/lira_analysis.git
+cd lira_analysis
 
-1. **Install Miniconda**
-   Download and install from the official site:
-   👉 [https://docs.conda.io/en/latest/miniconda.html](https://docs.conda.io/en/latest/miniconda.html)
+# Create environment (Python 3.8+)
+conda create -n lira python=3.11
+conda activate lira
 
-2. **Clone the repository**
+# Install package
+pip install .
 
-   ```bash
-   git clone https://github.com/najeebjebreel/lira_analysis.git
-   cd lira_analysis
-   ```
-
-3. **Create and activate the environment**
-
-   ```bash
-   conda create -n lira python=3.11
-   conda activate lira
-   ```
-
-4. **Install LiRA Analysis**
-
-   ```bash
-   pip install .
-   ```
-
-   > 💡 To include optional dependencies for development or notebooks:
-   >
-   > ```bash
-   > pip install .[dev]
-   > pip install .[notebooks]
-   > ```
+# Optional: development tools and notebooks
+pip install .[dev,notebooks]
+```
 
 ---
-
 
 ## Quick Start
 
-1. **Train Shadow Models (example: CIFAR-10)**
+**1. Train Shadow Models**
 
-   ```bash
-   python train.py --config configs/config_train_image.yaml
-   ```
+```bash
+python train.py --config configs/config_train_image.yaml
+```
 
-   Trains **256** shadow models and saves artifacts under:
-   `experiments/cifar10/resnet18/YYYY-MM-DD_HHMM/`
+This trains shadow models (default: 10 for testing, increase `num_shadow_models` for full experiments) and saves checkpoints to `experiments/{dataset}/{model}/{timestamp}/`.
 
-2. **Run LiRA Attack**
+**2. Run LiRA Attack**
 
-   ```bash
-   python attack.py --config configs/config_attack.yaml \
-     --override experiment.checkpoint_dir=experiments/cifar10/resnet18/YYYY-MM-DD_HHMM
-   ```
+```bash
+python attack.py --config configs/config_attack.yaml \
+  --override experiment.checkpoint_dir=experiments/cifar10/resnet18/YYYY-MM-DD_HHMM
+```
 
-   Runs online, offline, and global variants; saves metrics and ROC curves.
+Evaluates 5 attack variants and saves ROC curves, metrics, and vulnerability rankings.
 
-3. **Train and Attack Results** — see [OUTPUTS.md](./OUTPUTS.md)
+**3. Analyze Results**
+
+```bash
+jupyter notebook comprehensive_analysis/comprehensive_analysis.ipynb
+```
+
+See [comprehensive_analysis/README.md](comprehensive_analysis/README.md) for detailed analysis workflows
 
 ---
 
-## Project Structure
+## Repository Structure
 
 ```
 lira_analysis/
-├── train.py                  # Model training
-├── attack.py                 # LiRA evaluation (online/offline)
-├── configs/                  # YAML configs (training / attack)
-├── attacks/                  # LiRA implementations
-├── utils/                    # Helpers (I/O, logging, models, seeding, etc.)
-├── analysis_results/         # Analysis notebooks & scripts
-│   ├── threshold_dist.py
-│   ├── compare_attacks.py
-│   ├── vulnerability_analysis.py
-│   ├── loss_ratio_tpr.ipynb
-│   ├── plot_benchmark_distribution.ipynb
-│   ├── agreement.ipynb
-│   └── post_analysis.ipynb
-└── experiments/              # Auto-generated outputs
+├── train.py                    # Shadow model training
+├── attack.py                   # LiRA attack evaluation
+├── configs/                    # YAML configurations
+│   ├── config_train_image.yaml
+│   ├── config_train_tabular.yaml
+│   └── config_attack.yaml
+├── attacks/
+│   └── lira.py                 # LiRA implementation (5 variants)
+├── utils/                      # Training, data loading, models
+├── comprehensive_analysis/     # Analysis notebooks
+│   ├── comprehensive_analysis.ipynb
+│   ├── threshold_distribution.ipynb
+│   ├── reproducibility.ipynb
+│   └── ...
+├── data/                       # Dataset directory
+└── experiments/                # Auto-generated outputs
 ```
 
 ---
 
-## Datasets & Models
+## Datasets
 
-| Dataset              | Type    | Classes  | Samples | Models                                      |
-| -------------------- | ------- | -------- | ------- | --------------------------------------------|
-| CIFAR-10 / CIFAR-100 | Image   | 10 / 100 | 60,000  | ResNet-18, WideResNet, EfficientNet-V2 (TL) |
-| GTSRB                | Image   | 43       | ~51,000 | ResNet-18, , EfficientNet-V2 (TL)           |
-| Purchase-100         | Tabular | 100      | 197,324 | FCN                                         |
+| Dataset | Type | Classes | Samples | Models |
+|---------|------|---------|---------|--------|
+| CIFAR-10 / CIFAR-100 | Image | 10 / 100 | 60K | ResNet-18, WideResNet, EfficientNet-V2 |
+| GTSRB | Image | 43 | 51K | ResNet-18, EfficientNet-V2 |
+| Purchase-100 | Tabular | 100 | 197K | FCN |
 
----
- - All image datasets will be downloaded automatically.
- - Purchase can be downloaded to this folder via this link https://drive.proton.me/urls/25C1HJ14S8#3uJjfOAAPblu. Please put it inside a folder named ''purchase'' in the ''data'' folder.
+**Note:** Image datasets download automatically. Purchase-100 must be downloaded manually (see [data/Readme.md](data/Readme.md)).
+
 ---
 
 ## Attack Variants
 
-1. **LiRA (Online)** — in/out modeling; strongest with many shadows.
-2. **LiRA (Online, Fixed Variance)** — global variance; more stable for small shadow sets.
-3. **LiRA (Offline)** — out-only; realistic but weaker.
-4. **LiRA (Offline, Fixed Variance)** — simplest offline baseline.
-5. **Global Threshold** — single fixed threshold; sanity baseline.
+This implementation provides 5 LiRA variants:
+
+1. **LiRA (Online)** — Uses in/out distribution modeling (strongest)
+2. **LiRA (Online, Fixed Variance)** — Global variance (more stable)
+3. **LiRA (Offline)** — Out-distribution only (realistic)
+4. **LiRA (Offline, Fixed Variance)** — Simplest offline variant
+5. **Global Threshold** — Fixed threshold baseline
 
 ---
 
-## Analysis and Visualization
+## Configuration
 
-All post-attack comprehensive analyses are in [`comprehensive_analysis/`](comprehensive_analysis/), which reproduces our main rresults, and includes code scripts and interactive notebooks.
+Key parameters in `configs/config_train_image.yaml`:
+- `num_shadow_models`: Number of shadow models (default: 10, use 256+ for full experiments)
+- `dataset.pkeep`: Member probability (default: 0.5)
+- `training.epochs`: Training epochs per model
+- `train_data_augmentation`: Augmentation strategies
 
-For details, see [`comprehensive_analysis/README.md`](comprehensive_analysis/README.md).
+Key parameters in `configs/config_attack.yaml`:
+- `evaluation_mode`: `single`, `leave_one_out`, or `both`
+- `target_fprs`: False positive rates for evaluation (e.g., [0.001, 0.01])
+- `prior`: Membership prior for precision computation
 
 ---
 
 ## Citation
 
+```bibtex
+@article{yourpaper2025,
+  title={Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions},
+  author={Your Name and Others},
+  journal={Under Review},
+  year={2025}
+}
+```
 
 ---
 
 ## License
 
-Released under the **MIT License** — see [LICENSE](LICENSE).
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
 ## Acknowledgments
 
-We thank the original LiRA authors and the open-source community (PyTorch, TIMM, etc.).
-
-We used Claude Sonnet 4.5 to optimize code implementation.
+- Original LiRA implementation: [Carlini et al., 2022](https://arxiv.org/abs/2112.03570)
+- Built with PyTorch and TIMM
+- Code optimization: Claude Sonnet 4.5
