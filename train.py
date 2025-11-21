@@ -40,7 +40,7 @@ def setup_experiment(config):
     """
     # Create experiment directory
     dataset = config.get('dataset', {}).get('name', 'cifar10')
-    model= config.get('model', {}).get('architecture', 'resnet18')
+    model = config.get('model', {}).get('architecture', 'resnet18')
     if config.get('experiment', {}).get('checkpoint_dir', 'none') == 'none':
         experiment_dir = os.path.join('experiments', dataset, model, datetime.now().strftime('%Y-%m-%d_%H%M'))
         os.makedirs(experiment_dir, exist_ok=True)
