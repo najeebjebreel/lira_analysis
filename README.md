@@ -49,7 +49,7 @@ Follow these steps to reproduce the full pipeline: **train/finetune shadow model
 
 Choose the config that matches your dataset:
 
-- **Images**: `configs/config_train_image.yaml`
+- **Images**: `configs/config_train_image.yaml` (for models trained from scratch); `configs/config_finetune.yaml` (for transfer learning models)
 - **Tabular (Purchase-100)**: `configs/config_train_tabular.yaml`
 
 Run training (defaults to shadow-model training with `training.num_shadow_models=256`; adjust this value as needed):
