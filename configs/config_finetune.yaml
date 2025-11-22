@@ -7,8 +7,8 @@ use_cuda: true  # Whether to use CUDA for training
 
 # Dataset configuration
 dataset:
-  name: cifar10  # Options: cifar10, cifar100, gtsrb, cinic10, imagenet
-  num_classes: 10  # CIFAR-10 has 10 classes (was 43)
+  name: cifar10  # Options: cifar10, cifar100, gtsrb
+  num_classes: 10  # 
   input_size: 144  # Blanced accuracy/efficiency input size for pretrained models 
   data_dir: data  # Directory to store datasets
   pkeep: 0.5  # Probability of keeping a sample as a member
@@ -35,7 +35,7 @@ model:
 training:
   num_shadow_models: 256  
   start_shadow_model_idx: 0
-  end_shadow_model_idx: 256
+  end_shadow_model_idx: 255
   epochs: 10  # 
   batch_size: 128
   num_workers: 4
