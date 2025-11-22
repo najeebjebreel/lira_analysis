@@ -96,6 +96,14 @@ jupyter notebook comprehensive_analysis/reproducibility.ipynb
 
 See [comprehensive_analysis/README.md](comprehensive_analysis/README.md) for notebook-specific guidance.
 
+**Which notebook generates which paper asset?**
+
+- `comprehensive_analysis.ipynb`: Tables **3–13** and Figures **4** & **11**.
+- `threshold_distribution.ipynb`: Figure **1** (threshold stability across targets).
+- `reproducibility.ipynb`: Figures **2, 3, 5, 6, 9, 10** plus the corresponding per-FPR reproducibility tables.
+- `loss_ratio_tpr.ipynb`: Figure **7** (loss ratio vs. TPR).
+- `plot_benchmark_distribution.ipynb`: Figure **8** (score distributions across benchmarks).
+
 ---
 
 ## Repository Structure

@@ -18,6 +18,8 @@ Before opening a notebook, ensure you have already:
 
 Main analysis pipeline for LiRA evaluation.
 
+**Paper assets generated:** Tables **3–13** and Figures **4** & **11**.
+
 **Features:**
 - Per-model metrics (AUC, TPR@FPR, precision at multiple priors)
 - Two-threshold evaluation:
@@ -54,6 +56,8 @@ PRIORS = [0.01, 0.1, 0.5]
 #### `threshold_distribution.ipynb`
 Visualizes threshold stability across models. Requires output from `comprehensive_analysis.ipynb`.
 
+**Paper assets generated:** Figure **1** (threshold stability across targets).
+
 **Plots:**
 - Threshold distributions per attack variant
 - Target vs shadow threshold comparison
@@ -62,7 +66,9 @@ Visualizes threshold stability across models. Requires output from `comprehensiv
 ---
 
 #### `reproducibility.ipynb`
-Analyzes detection consistency across multiple runs (reproduces paper Fig. 2).
+Analyzes detection consistency across multiple runs (produces paper Figures 2, 3, 5, 6, 9, and 10).
+
+**Paper assets generated:** Figures **2, 3, 5, 6, 9, 10** and the associated per-FPR reproducibility tables.
 
 **Metrics:**
 - Jaccard index (agreement)
@@ -74,14 +80,18 @@ Analyzes detection consistency across multiple runs (reproduces paper Fig. 2).
 ---
 
 #### `loss_ratio_tpr.ipynb`
-Analyzes relationship between loss ratios and TPR (paper Fig. 5).
+Analyzes relationship between loss ratios and TPR (paper Fig. 7).
+
+**Paper assets generated:** Figure **7** (loss ratio vs. TPR).
 
 **Requires:** Custom CSV with aggregated loss and TPR statistics.
 
 ---
 
 #### `plot_benchmark_distribution.ipynb`
-Compares score distributions across training configurations (paper Fig. 6).
+Compares score distributions across training configurations (paper Fig. 8).
+
+**Paper assets generated:** Figure **8** (score distributions across benchmarks).
 
 **Usage:** Specify sample ID to visualize across baseline/AOF/TL benchmarks.
 
