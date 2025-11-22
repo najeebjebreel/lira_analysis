@@ -4,7 +4,7 @@ seed: 42
 use_cuda: true
 
 dataset:
-  name: purchase # Options: purchase, texas, locations 
+  name: purchase # Options: purchase
   num_classes: 100 
   data_dir: data
   pkeep: 0.5
@@ -22,8 +22,8 @@ model:
 training:
   num_shadow_models: 256
   start_shadow_model_idx: 0
-  end_shadow_model_idx: 256
-  epochs: 20
+  end_shadow_model_idx: 255
+  epochs: 100
   batch_size: 128
   num_workers: 4
   learning_rate: 0.01
@@ -64,3 +64,4 @@ experiment:
 #     input_dim: 446
 #     data_dir: data
 #     pkeep: 0.5
+
