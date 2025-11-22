@@ -171,14 +171,6 @@ Key parameters in `configs/config_attack.yaml`:
 
 ## Citation
 
-```bibtex
-@article{yourpaper2025,
-  title={Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions},
-  author={Your Name and Others},
-  journal={Under Review},
-  year={2025}
-}
-```
 
 ---
 
