@@ -4,11 +4,11 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Official implementation of **"Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions"** (under review).
 
 ## Overview
 
-This repository re-evaluates the Likelihood Ratio Attack (LiRA) for membership inference under realistic assumptions. We show that prior work often overestimated attack success by using overconfident models, target-data threshold calibration, and balanced membership priors.
+This repository provides an official implementation of **"Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions"**.
+We show that prior work often overestimated attack success by using overconfident models, target-data threshold calibration, and balanced membership priors.
 
 **Key Contributions:**
 - Evaluation with **anti-overfitting** and **transfer learning** defenses
