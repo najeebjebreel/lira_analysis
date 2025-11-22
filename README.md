@@ -42,32 +42,59 @@ pip install .[dev,notebooks]
 
 ---
 
-## Quick Start
+## Quick Start (End-to-End Workflow)
 
-**1. Train Shadow Models**
+Follow these steps to reproduce the full pipeline: **train/finetune shadow models → run LiRA attack → analyze vulnerability**.
+
+### 1) Train or Finetune Shadow Models (using a config file)
+
+Choose the config that matches your dataset:
+
+- **Images**: `configs/config_train_image.yaml`
+- **Tabular (Purchase-100)**: `configs/config_train_tabular.yaml`
+
+Run training (defaults to shadow training; adjust `training.num_shadow_models` as needed):
 
 ```bash
-python train.py --config configs/config_train_image.yaml
+# Image example: CIFAR-10 with ResNet-18
+python train.py --config configs/config_train_image.yaml \
+  --override dataset.name=cifar10 model.architecture=resnet18
+
+# Tabular example: Purchase-100 with a fully connected network
+python train.py --config configs/config_train_tabular.yaml
 ```
 
-This trains shadow models (default: 10 for testing, increase `num_shadow_models` for full experiments) and saves checkpoints to `experiments/{dataset}/{model}/{timestamp}/`.
+- **Output**: `experiments/{dataset}/{model}/{timestamp}/` containing checkpoints, logits, scores, and saved `train_config.yaml`.
+- **Finetuning**: point `experiment.checkpoint_dir` in the config (or via `--override`) to reuse an existing directory and continue training.
 
-**2. Run LiRA Attack**
+### 2) Run the LiRA Attack (using the matching attack config)
+
+Use the attack config that corresponds to your training run and pass the checkpoint directory from step 1:
 
 ```bash
 python attack.py --config configs/config_attack.yaml \
-  --override experiment.checkpoint_dir=experiments/cifar10/resnet18/YYYY-MM-DD_HHMM
+  --override experiment.checkpoint_dir=experiments/cifar10/resnet18/YYYY-MM-DD_HHMM \
+  --override attack.evaluation_mode=leave_one_out  # or "single" / "both"
 ```
 
-Evaluates 5 attack variants and saves ROC curves, metrics, and vulnerability rankings.
+- **Output**: Adds `attack_config.yaml`, ROC curves, per-variant metrics, and LiRA score files inside the same experiment directory.
+- **Note**: The attack automatically loads all shadow model checkpoints found under `experiment.checkpoint_dir`.
 
-**3. Analyze Results**
+### 3) Analyze Results (notebooks)
 
 ```bash
+# Primary analysis: aggregates metrics, thresholds, and vulnerability rankings
 jupyter notebook comprehensive_analysis/comprehensive_analysis.ipynb
+
+# Optional: threshold stability and reproducibility studies
+jupyter notebook comprehensive_analysis/threshold_distribution.ipynb
+jupyter notebook comprehensive_analysis/reproducibility.ipynb
 ```
 
-See [comprehensive_analysis/README.md](comprehensive_analysis/README.md) for detailed analysis workflows
+- In each notebook, set `EXP_PATH` to the experiment directory from steps 1–2.
+- Outputs are written to `analysis_results/{dataset}/{model}/{config}/` (see the analysis README for details).
+
+See [comprehensive_analysis/README.md](comprehensive_analysis/README.md) for notebook-specific guidance.
 
 ---
 

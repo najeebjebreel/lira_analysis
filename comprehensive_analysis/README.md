@@ -2,6 +2,12 @@
 
 This directory contains Jupyter notebooks for analyzing LiRA attack results and reproducing paper figures.
 
+Before opening a notebook, ensure you have already:
+
+1. **Trained/finetuned shadow models** via `train.py --config configs/config_train_*.yaml` (image or tabular) so that `experiments/{dataset}/{model}/{timestamp}/` exists.
+2. **Run the LiRA attack** with `attack.py --config configs/config_attack.yaml --override experiment.checkpoint_dir=...` to generate `*_scores_leave_one_out.npy` and `membership_labels.npy` inside that experiment directory.
+3. Located the experiment path (e.g., `experiments/cifar10/resnet18/YYYY-MM-DD_HHMM`) to set as `EXP_PATH` in each notebook.
+
 ---
 
 ## Notebooks
