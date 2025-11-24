@@ -11,7 +11,7 @@ for membership inference attacks, including:
 5. Aggregation: Cross-model statistics for leave-one-out evaluation
 6. Robust Statistics: Median and MAD for outlier resistance
 
-Author: N.Jebreel
+Author: X Y
 Date: 2025
 """
 
@@ -372,4 +372,5 @@ def compute_median_and_rmad(values: np.ndarray) -> Tuple[float, float]:
     else:
         rmad = np.nan
     
+
     return median, rmad
