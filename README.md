@@ -63,8 +63,7 @@ python train.py --config configs/config_train_image.yaml \
 python train.py --config configs/config_train_tabular.yaml
 ```
 
-- **Output**: `experiments/{dataset}/{model}/{timestamp}/` containing checkpoints, logits, scores, and saved `train_config.yaml`.
-- **Finetuning**: point `experiment.checkpoint_dir` in the config (or via `--override`) to reuse an existing directory and continue training.
+- **Output**: `experiments/{dataset}/{model}/{timestamp}/` containing checkpoints, saved `keep_indices` and saved `train_config.yaml`.
 
 ### 2) Run the LiRA Attack (using the matching attack config)
 
