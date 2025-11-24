@@ -7,7 +7,7 @@
 
 ## Overview
 
-This repository provides an official implementation of **"Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions"**.
+This repository provides an official implementation of the paper **"Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions"**.
 We show that prior work often overestimated attack success by using overconfident models, target-data threshold calibration, and balanced membership priors.
 
 **Key Contributions:**
