@@ -1,6 +1,6 @@
 """
 Module implementing the LiRA membership inference pipeline: generating logits, scoring, and plotting.
-Author: Najeeb Jebreel, optimized by Cloude Sonnet 4.5
+Author: X Y, optimized by Cloude Sonnet 4.5
 Date: 2025
 """
 import os
@@ -838,4 +838,5 @@ class LiRA:
             preds.extend((-sc).mean(1))
             ans.extend(mask)
         return preds, ans
+
     
