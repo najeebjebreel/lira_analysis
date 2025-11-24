@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
 authors = [
-    {name = "Najeeb Jebreel", email = "najeeb.jebreel@urv.cat"}
+    {name = "Anonymous", email = "anon@example.com"}
 ]
 keywords = [
     "membership inference",
@@ -61,10 +61,10 @@ notebooks = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/najeebjebreel/lira_analysis"
-Documentation = "https://github.com/najeebjebreel/lira_analysis/blob/main/README.md"
-Repository = "https://github.com/najeebjebreel/lira_analysis"
-"Bug Tracker" = "https://github.com/najeebjebreel/lira_analysis/issues"
+Homepage = "https://example.com/project"
+Documentation = "https://example.com/project/docs"
+Repository = "https://example.com/project/repo"
+"Bug Tracker" = "https://example.com/project/issues"
 
 [tool.setuptools]
 packages = ["utils", "attacks"]
