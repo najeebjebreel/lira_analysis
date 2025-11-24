@@ -171,7 +171,7 @@ All attack score files have the same format:
 **Description:** Per-target, per-attack threshold information for detailed analysis.
 
 
-### `train_test_stats.csv`
+### `shadow_metrics_aggregate.csv`
 
 **Format:** CSV with columns:
 - `Set`: 'Train' or 'Test'
@@ -187,6 +187,7 @@ All attack score files have the same format:
 **Important:** All score files use the convention **"higher = more likely member"**
 
 ---
+
 
 
 
