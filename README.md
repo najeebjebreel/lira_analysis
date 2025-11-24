@@ -26,7 +26,8 @@ We show that prior work often overestimated attack success by using overconfiden
 ## Installation
 
 ```bash
-git clone https://github.com/anonymous/lira_analysis.git
+Download this anonymized repository
+Navigate into the project directory:
 cd lira_analysis
 
 # Create environment (Python 3.8+)
