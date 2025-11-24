@@ -43,7 +43,7 @@ pip install .[dev,notebooks]
 ---
 
 ## How to Run the Codes and Reproduce Results
-Follow these steps to reproduce the full pipeline: **train/finetune shadow models → run LiRA attack → analyze vulnerability**.
+Follow these steps to reproduce the full pipeline: **train/finetune shadow models → run LiRA attack → perform analysis**.
 
 ### 1) Train or Finetune Shadow Models (using a config file)
 
