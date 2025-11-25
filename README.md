@@ -181,6 +181,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-- Original LiRA implementation: [Carlini et al., 2022](https://arxiv.org/abs/2112.03570)
+- Original LiRA implementation: [Carlini et al., 2022](https://ieeexplore.ieee.org/document/9833649)
 - Built with PyTorch and TIMM
 - Code optimization: Claude Sonnet 4.5
