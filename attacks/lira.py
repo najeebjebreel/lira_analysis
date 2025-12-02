@@ -272,8 +272,8 @@ class LiRA:
         For each shadow model i:
         - load logits from model_i/logits/logits.npy ([N,1,A,C] or [N,A,C])
         - compute softmax over classes
-        - compute y_true = average true‐class probability over all augs
-        - compute y_wrong = average of remaining probability mass over all augs
+        - compute y_true = true‐class probability over all augs
+        - compute y_wrong = remaining probability mass over all augs
         - score = log(y_true) - log(y_wrong)
         - save score array (shape [N, A]) to model_i/scores/scores.npy
         """
@@ -840,3 +840,4 @@ class LiRA:
         return preds, ans
 
     
+
