@@ -15,7 +15,7 @@ Requested Badges:
 
 Najeeb Jebreel, Mona Khalil, David Sánchez, and Josep Domingo-Ferrer,
 "Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions",
-Accepted to *Proceedings on Privacy Enhancing Technologies (PoPETs)*, 2026.
+*Proceedings on Privacy Enhancing Technologies (PoPETs)*, 2026.
 Preprint: https://arxiv.org/abs/2603.07567
 
 ### Artifact Summary
@@ -46,7 +46,7 @@ The Purchase-100 tabular benchmarks can run on CPU but benefit from a GPU.
 - GPU: NVIDIA GeForce RTX 4080, 16 GB VRAM
 - OS: Ubuntu 20.04 LTS (WSL2 on Windows 11 Education)
 - CUDA: 12.6 / Driver 560.94
-- RAM: 16 GB
+- RAM: 32 GB
 - CPU: Intel Core i7-12700 (10 cores / 20 threads)
 
 
