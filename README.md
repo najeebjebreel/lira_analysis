@@ -16,7 +16,7 @@ We show that prior work often overestimated attack success by relying on overcon
 
 **Main Findings:**
 - AoF and TL defenses reduce LiRA success while maintaining model utility
-- Shadow-calibrated thresholds and realistic priors substantially lower attack precision
+- Shadow-calibrated thresholds and realistic priors substantially lower attack precision for AoF and TL models.
 - Thresholded membership predictions are highly unstable; vulnerability ranking based on LiRA scores is substantially more stable
 
 
