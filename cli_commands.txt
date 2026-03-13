@@ -1,6 +1,6 @@
 # CLI command reference for the LiRA pipeline
 #
-# Run from: /mnt/d/mona/lira_analysis
+# Run from: /mnt/xx/lira_analysis
 #
 # Notes:
 # - These commands assume execution from a Linux shell (WSL or native Linux).
