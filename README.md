@@ -2,7 +2,7 @@
 
 This repository provides the **official implementation** of the paper
 **["Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions"](https://arxiv.org/abs/2603.07567)**
-(Jebreel, Khalil, Sánchez, Domingo-Ferrer — PoPETs 2026).
+(Jebreel, Khalil, Sánchez, Domingo-Ferrer).
 
 We show that prior work often overestimated attack success by using overconfident models,
 target-data threshold calibration, and balanced membership priors.
