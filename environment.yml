@@ -1,0 +1,9 @@
+name: lira-repro
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip=24.3
+  - pip:
+      - -r requirements-lock.txt
+      - -e .

@@ -1,0 +1,881 @@
+"""
+Module implementing the LiRA membership inference pipeline: generating logits, scoring, and plotting.
+Author: Najeeb Jebreel, optimized by Cloude Sonnet 4.5
+Date: 2025
+"""
+import os
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from utils.model_utils import get_model
+from tqdm import tqdm
+import pandas as pd
+
+import matplotlib.pyplot as plt
+import scipy.stats
+# Font compatibility for PDFs
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+from utils.data_utils import load_dataset
+from utils.common import load_checkpoint_safe
+from comprehensive_analysis.metrics import compute_roc_metrics
+
+class LiRA:
+    """
+    Likelihood Ratio Attack (LiRA) for membership inference.
+
+    This class implements the LiRA membership inference attack as described in
+    "Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions".
+
+    The attack works by:
+    1. Training multiple shadow models on different subsets of data (done separately beforehand)
+    2. Computing logits for all samples using each shadow model
+    3. Computing scaled logits to obtain Gauussian distributions for members and non-members
+    3. Computing membership scores based on likelihood ratios
+    4. Evaluating attack performance using ROC curves and metrics
+
+    The implementation supports:
+    - Online and offline LiRA variants
+    - Fixed and adaptive variance estimation
+    - Multiple evaluation modes (single target, leave-one-out)
+    - Spatial augmentation for improved robustness
+    - Multiple target FPR thresholds for precision/recall analysis
+
+    Attributes:
+        logger: Logger instance for tracking progress
+        config: Configuration dictionary with experiment settings
+        experiment_dir: Directory containing shadow models and results
+        full_dataset: Complete dataset for inference
+        labels: Ground truth labels for all samples
+        device: Torch device (CPU or CUDA)
+        model: Neural network model architecture
+        num_shadow_models: Number of shadow models to use
+        keep_indices: Boolean matrix indicating training membership
+    """
+    @staticmethod
+    def _extract_targets(dataset):
+        """
+        Extract target labels from datasets, including nested Subset/random_split outputs.
+        """
+        if hasattr(dataset, 'targets'):
+            return np.array(dataset.targets)
+        if hasattr(dataset, 'labels'):
+            return np.array(dataset.labels)
+        if hasattr(dataset, '_samples'):
+            # GTSRB and similar datasets store (path, label) tuples in _samples
+            return np.array([label for _, label in dataset._samples])
+        if hasattr(dataset, 'dataset') and hasattr(dataset, 'indices'):
+            parent_targets = LiRA._extract_targets(dataset.dataset)
+            return np.array(parent_targets)[np.array(dataset.indices)]
+        raise AttributeError("Dataset does not expose targets/labels in a supported format")
+
+    def __init__(self, config, logger):
+        self.logger = logger
+        self.logger.info("Initializing LiRA...")
+        self.config = config
+      
+        # Experiment directory
+        self.experiment_dir = config.get('experiment', {}).get('checkpoint_dir', 'experiments')
+        self.logger.info(f"Experiment directory: {self.experiment_dir}")
+
+        # Load dataset
+        self.logger.info("Loading dataset...")
+        self.full_dataset, _, _, _ = load_dataset(config, mode='inference')
+        self.labels = self._extract_targets(self.full_dataset)
+        self.logger.info("Dataset loaded...")
+        self.logger.info("full_dataset size: %d", len(self.full_dataset))
+        self.logger.info("Labels shape: %s", self.labels.shape)
+        
+        # Enhanced augmentation configuration
+        attack_cfg = config.get('attack', {})
+        self.target_model = attack_cfg.get('target_model', 'best')
+        self.prior = attack_cfg.get('prior', 0.5)
+        
+        # Parse augmentation config with spatial parameters
+        aug_cfg = self.config.get('inference_data_augmentations', {})
+        self.aug_type = aug_cfg.get('mode', 'none')
+
+        # Initialize defaults (work for any mode)
+        self.spatial_shift = 0
+        self.spatial_stride = 1
+        self.use_horizontal_flip = False
+
+        self.logger.info(f"Augmentation type: {self.aug_type}")
+
+        if self.aug_type == 'lira_aug':
+            aug = int(aug_cfg.get('aug', 18))
+            if aug == 0:
+                pass  # Already set to defaults
+            elif aug == 2:
+                self.use_horizontal_flip = True
+            elif aug == 18:
+                self.spatial_shift = 1
+                self.use_horizontal_flip = True
+            elif aug == 50:
+                self.spatial_shift = 2
+                self.use_horizontal_flip = True
+            else:
+                raise ValueError("Unsupported LiRA aug value (use 0, 2, 18, or 50)")
+
+        self.logger.info(f"Number of augmentations per sample: {((2 if self.use_horizontal_flip else 1) * ((2 * self.spatial_shift + 1) ** 2))}")
+        
+        # Get device
+        use_cuda = config.get('use_cuda', True)
+        self.device = torch.device('cuda' if use_cuda and torch.cuda.is_available() else 'cpu')
+        logger.info(f"Using device: {self.device}")
+        
+        # DataLoader (use num_workers from config)
+        train_cfg    = config.get('training', {})
+        batch_size   = train_cfg.get('batch_size', 128)
+        num_workers  = train_cfg.get('num_workers', 0)
+        
+        self.data_loader = DataLoader(
+            self.full_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=self.device.type == 'cuda',
+            persistent_workers=num_workers > 0
+        )
+        
+        # Model
+        model_cfg = config.get('model', {})
+        num_classes = config.get('dataset', {}).get('num_classes', 10)
+        self.model = get_model(num_classes, **model_cfg)
+        self.model = self.model.to(self.device)
+
+        # Shadow models — use however many checkpoints are actually present
+        configured = train_cfg.get('num_shadow_models', 1)
+        target_model_prefix = "best_model.pth" if train_cfg.get("target_model", "best") == "best" else None
+        available = sum(
+            1 for i in range(configured)
+            if os.path.exists(os.path.join(self.experiment_dir, f"model_{i}", "best_model.pth"))
+        )
+        self.num_shadow_models = available if available > 0 else configured
+        self.logger.info(f"Using {self.num_shadow_models} shadow models")
+
+        self.keep_indices_path = os.path.join(self.experiment_dir, 'keep_indices.npy')
+        self.keep_indices = np.load(self.keep_indices_path) 
+        self.logger.info(f"Loaded keep_indices from {self.keep_indices_path}")
+
+
+    def get_model_logits(self, data_loader=None):
+        """
+        Generate model logits with optional data augmentation.
+
+        This method runs inference on the dataset with configurable augmentations:
+        - Original images (no augmentation)
+        - Horizontal flip (if enabled)
+        - Spatial shifts in a grid pattern (if spatial_shift > 0)
+        - Combinations of spatial shifts and horizontal flips
+
+        The augmentations improve attack robustness by averaging predictions
+        across multiple views of each sample.
+
+        Args:
+            data_loader: DataLoader to use for inference. If None, uses self.data_loader.
+
+        Returns:
+            torch.Tensor: Logits with shape [N, A, C] where:
+                - N = number of samples
+                - A = number of augmentations per sample
+                - C = number of classes
+        """
+       
+        if data_loader is None:
+            data_loader = self.data_loader
+
+        all_logits = []
+
+        # LiRA inference uses training=True in Objax; mirror BN behavior
+        self.model.train()
+        for m in self.model.modules():
+            if isinstance(m, (torch.nn.Dropout, torch.nn.Dropout2d, torch.nn.Dropout3d, torch.nn.AlphaDropout)):
+                m.eval()  # disable dropout
+
+        reflect = bool(self.use_horizontal_flip)
+        shift = int(self.spatial_shift)
+        stride = int(self.spatial_stride)
+
+        with torch.no_grad():
+            for inputs, _ in tqdm(data_loader, desc="Processing batches"):
+                inputs = inputs.to(self.device)
+                batch_logits = []
+
+                # Tabular and other non-image inputs do not support LiRA image augmentations.
+                if inputs.ndim < 4:
+                    logits = self.model(inputs)
+                    batch_logits = torch.stack([logits], dim=1)
+                    all_logits.append(batch_logits)
+                    continue
+
+                # List of flip variants: original (+ optional hflip)
+                flip_variants = [inputs]
+                if reflect:
+                    flip_variants.append(torch.flip(inputs, dims=[3]))  # horizontal flip (W-dim)
+
+                for img in flip_variants:
+                    if shift > 0:
+                        # reflection pad: [left, right, top, bottom]
+                        padded = F.pad(img, [shift, shift, shift, shift], mode='reflect')
+                    else:
+                        # No pad if shift=0 to avoid extra copy
+                        padded = img
+
+                    H, W = inputs.shape[2], inputs.shape[3]
+                    # Full grid: dx in [0..2*shift], dy in [0..2*shift] by 'stride'
+                    for dx in range(0, 2 * shift + 1, stride):
+                        for dy in range(0, 2 * shift + 1, stride):
+                            # NOTE: include center (dx==shift and dy==shift)
+                            crop = padded[:, :, dy:dy + H, dx:dx + W]
+                            logits = self.model(crop)
+                            batch_logits.append(logits)
+
+                # Stack augmentations: [B, A, C] in LiRA order (flip first, then dx, then dy)
+                batch_logits = torch.stack(batch_logits, dim=1)
+                all_logits.append(batch_logits)
+
+        result = torch.cat(all_logits, dim=0)  # [N, A, C]
+        self.logger.info(f"Generated logits with {result.shape[1]} augmentations per sample")
+        return result
+
+    def generate_logits(self):
+        """
+        Generate and save logits for all shadow models.
+
+        For each shadow model, this method:
+        1. Loads the trained model checkpoint
+        2. Runs inference on the full dataset with augmentations
+        3. Saves logits to model_i/logits/logits.npy with shape [N, 1, A, C]
+
+        The logits are used in subsequent steps to compute membership scores.
+        If logits already exist and overwrite_logits=False in config, skips that model.
+
+        Raises:
+            FileNotFoundError: If a model checkpoint is not found
+            Exception: If there's an error loading or running a model
+        """
+        if self.target_model == 'best':
+            target_model_prefix = 'best_model.pth'
+        else:
+            target_model_prefix = f"checkpoint_epoch{self.target_model}.pth"
+
+        for i in range(self.num_shadow_models):
+            self.logger.info(f"Inference using shadow model {i}...")
+            ckpt = os.path.join(self.experiment_dir, f'model_{i}', target_model_prefix)
+            if not os.path.exists(ckpt):
+                self.logger.warning(f"Checkpoint not found: {ckpt}")
+                continue
+
+            logits_dir = os.path.join(self.experiment_dir, f'model_{i}', 'logits')
+            os.makedirs(logits_dir, exist_ok=True)
+            logits_path = os.path.join(logits_dir, 'logits.npy')
+            if os.path.exists(logits_path) and self.config.get('experiment', {}).get('overwrite_logits', False) is False:
+                self.logger.info(f"Logits already exist for model {i}, skipping")
+                continue
+
+            try:
+                self.logger.info(f"Loading checkpoint from {ckpt}")
+                self.model, _ = load_checkpoint_safe(ckpt, self.model, self.device, self.logger)
+
+                aug_desc = f"{self.aug_type}"
+                if self.spatial_shift > 0:
+                    aug_desc += f" (shift={self.spatial_shift}, stride={self.spatial_stride})"
+                if self.use_horizontal_flip:
+                    aug_desc += " + horizontal_flip"
+                    
+                self.logger.info(f"Running inference with augmentations: {aug_desc}")
+                logits = self.get_model_logits()
+                logits = logits.cpu().unsqueeze(1).numpy()  # [N,1,A,C]
+                self.logger.info(f"Logits shape: {logits.shape}")
+                np.save(logits_path, logits)  # [N,1,A,C]
+                self.logger.info(f"Saved logits to {logits_path}")
+
+            except Exception as e:
+                self.logger.error(f"Error on model {i}: {e}")
+        self.logger.info("Completed logits generation for all models")
+        
+    def compute_scores(self):
+        """
+        For each shadow model i:
+        - load logits from model_i/logits/logits.npy ([N,1,A,C] or [N,A,C])
+        - compute softmax over classes
+        - compute y_true = average true‐class probability over all augs
+        - compute y_wrong = average of remaining probability mass over all augs
+        - score = log(y_true) - log(y_wrong)
+        - save score array (shape [N, A]) to model_i/scores/scores.npy
+        """
+
+        for i in range(self.num_shadow_models):
+            # where the logits live
+            logits_path = os.path.join(self.experiment_dir,
+                                    f"model_{i}",
+                                    "logits",
+                                    "logits.npy")
+            if not os.path.exists(logits_path):
+                self.logger.warning(f"No logits for model_{i}, skipping score computation")
+                continue
+
+            # prepare output dir
+            scores_dir = os.path.join(self.experiment_dir,
+                                    f"model_{i}",
+                                    "scores")
+            os.makedirs(scores_dir, exist_ok=True)
+            if os.path.exists(os.path.join(scores_dir, "scores.npy")) and self.config.get('experiment', {}).get('overwrite_scores', False) is False:
+                self.logger.info(f"Scores already exist for model {i}, skipping")
+                continue
+
+            # load logits
+            try:
+                opredictions = np.load(logits_path)  # [N,1,A,C] or legacy [N,A,C]
+                self.logger.info(f"Loaded logits for model_{i}: shape {opredictions.shape}")
+            except Exception as e:
+                self.logger.error(f"Error loading logits for model_{i}: {e}")
+                continue        
+
+            if opredictions.ndim == 3:
+                opredictions = opredictions[:, None, :, :]
+            if opredictions.ndim != 4:
+                self.logger.error(
+                    f"Unsupported logits shape for model_{i}: expected 4D logits, got {opredictions.shape}"
+                )
+                continue
+
+            ## Be exceptionally careful.
+            ## Numerically stable everything, as described in the paper.
+            predictions = opredictions - np.max(opredictions, axis=3, keepdims=True)
+            predictions = np.array(np.exp(predictions), dtype=np.float64)
+            predictions = predictions/np.sum(predictions,axis=3,keepdims=True)
+
+            COUNT = predictions.shape[0]
+            #  x num_examples x num_augmentations x logits
+            y_true = predictions[np.arange(COUNT),:,:,self.labels[:COUNT]]
+  
+            predictions[np.arange(COUNT),:,:,self.labels[:COUNT]] = 0
+            y_wrong = np.sum(predictions, axis=3)
+
+            logit = (np.log(y_true.mean((1))+1e-45) - np.log(y_wrong.mean((1))+1e-45))
+
+            # save out
+            outpath = os.path.join(scores_dir, "scores.npy")
+            np.save(outpath, logit)
+            self.logger.info(f"Saved scores for model_{i} to {outpath}")
+
+        self.logger.info("Completed score computation for all shadow models")
+    
+    def plot(self, ntest=1, metric='auc'):
+        """
+        Main plotting function that handles different evaluation modes.
+
+        Args:
+            ntest: Number of shadow models to use as test/target models (for single mode)
+            metric: Metric to display in plot legend ('auc' or 'acc')
+
+        The function supports three evaluation modes (configured in attack.evaluation_mode):
+        - 'single': Use last ntest models as targets, rest as training
+        - 'leave_one_out': Each shadow model serves as target once
+        - 'both': Run both single and leave-one-out evaluation
+        """
+        attack_cfg = self.config.get('attack', {})
+        evaluation_mode = attack_cfg.get('evaluation_mode', 'single')
+        
+        if evaluation_mode == 'single':
+            self._plot_single_target(ntest=ntest, metric=metric)
+        elif evaluation_mode == 'leave_one_out':
+            self._plot_leave_one_out(metric=metric)
+        elif evaluation_mode == 'both':
+            self._plot_single_target(ntest=ntest, metric=metric)
+            self._plot_leave_one_out(metric=metric)
+        else:
+            raise ValueError(f"Unknown evaluation_mode: {evaluation_mode}")
+
+    def _plot_single_target(self, ntest=1, metric='auc'):
+        """
+        Evaluate attack performance using single target model(s).
+
+        This method:
+        1. Uses the last ntest shadow models as target models
+        2. Uses the remaining shadow models to compute attack statistics
+        3. Runs all 5 attack variants (online, online+fixed_var, offline, offline+fixed_var, global)
+        4. Generates ROC curves and computes metrics at target FPRs
+        5. Saves results to CSV and PDF files
+
+        Args:
+            ntest: Number of models to use as targets (typically 1)
+            metric: Metric to show in plot legend ('auc' or 'acc')
+
+        Outputs:
+            - roc_curve_single.pdf: ROC curve plot
+            - attack_results_single.csv: Metrics table
+            - train_test_stats.csv: Training/test loss and accuracy statistics
+        """
+        self.logger.info(f"Running single target evaluation with ntest={ntest}")
+        
+        # --- load scores and keep_indices ---
+        scores_list = []
+        for i in range(self.num_shadow_models):
+            path = os.path.join(self.experiment_dir,
+                                f"model_{i}", "scores", "scores.npy")
+            if os.path.exists(path):
+                scores_list.append(np.load(path))
+            else:
+                self.logger.warning(f"No scores for model_{i}")
+        if not scores_list:
+            raise RuntimeError("No score files found in any shadow model directories.")
+        scores = np.stack(scores_list)          # shape (M_used, N, A)
+        self.keep_indices = np.array(self.keep_indices)[:len(scores_list)]  # shape (M_used, N)
+        self.logger.info(f"Loaded {scores.shape[0]} models, scores shape: {scores.shape}")
+    
+
+        # --- split train/test once ---
+        train_keep   = self.keep_indices[:-ntest]
+        train_scores = scores[:-ntest]
+        test_keep    = self.keep_indices[-ntest:]
+        test_scores  = scores[-ntest:]
+
+        # --- run and plot each attack ---
+        plt.figure(figsize=(4, 3))
+        attacks = [
+            (self.generate_ours,           "LiRA (online)",             {'color': 'C0', 'fix_variance': False}),
+            (self.generate_ours,           "LiRA (online, fixed var)",  {'color': 'C1', 'fix_variance': True}),
+            (self.generate_ours_offline,   "LiRA (offline)",            {'color': 'C2', 'fix_variance': False}),
+            (self.generate_ours_offline,   "LiRA (offline, fixed var)", {'color': 'C3', 'fix_variance': True}),
+            (self.generate_global,         "Global threshold",          {'color': 'C4'}),
+        ]
+
+        results = {}
+        tfprs = self.config.get('attack', {}).get('target_fprs', [0.001])
+        if not isinstance(tfprs, (list,tuple,np.ndarray)):
+            tfprs = [tfprs]
+
+        for fn, label, opts in attacks:
+            results[label] = {}
+            opts_local = opts.copy()
+            fix_var = opts_local.pop('fix_variance', False)
+            if label == "Global threshold":
+                preds, ans = fn(train_keep, train_scores, test_keep, test_scores)
+            else:
+                preds, ans = fn(train_keep, train_scores, test_keep, test_scores, fix_variance=fix_var)
+            fpr, tpr, auc_v, acc_v, thresholds = self.sweep(np.array(preds), np.array(ans, dtype=bool))
+            
+            results[label] = {
+                'Acc':  acc_v*100,
+                'AUC':  auc_v*100,
+                'FPRs': [],
+                'TPRs': [],
+                'Precs': []
+            }
+
+            metric_text = f"AUC={auc_v*100:.2f}" if metric == 'auc' else f"Acc={acc_v*100:.2f}"
+            plt.plot(fpr, tpr, label=f"{label} ({metric_text})", **opts_local)
+
+            # compute & log TPR@each target FPR
+            for tfpr in tfprs:
+                idx = np.where(fpr <= tfpr)[0]
+                if idx.size > 0:
+                    tpr_at = float(tpr[idx[-1]])
+                    actual_fpr = float(fpr[idx[-1]])
+                    prec = (self.prior*tpr_at) / (self.prior*tpr_at + (1-self.prior)*actual_fpr + 1e-30)
+                else:
+                    tpr_at = 0.0
+                    actual_fpr = 0.0 
+                    prec = 0.0
+
+
+                self.logger.info(
+                    f"{label}: AUC={auc_v*100:.2f}, Acc={acc_v*100:.2f}, "
+                    f"TPR@{tfpr*100:.4f}FPR={tpr_at*100:.3f}, "
+                    f"Prec@{tfpr*100:.4f}FPR={prec*100:.2f}" 
+                )
+                
+                results[label]['FPRs'].append(tfpr*100)
+                results[label]['TPRs'].append(tpr_at*100)
+                results[label]['Precs'].append(prec*100)
+                
+            self.logger.info("---------------------------------------------------------------------")
+
+        plt.semilogx()
+        plt.semilogy()
+        plt.xlim(1e-5, 1)
+        plt.ylim(1e-5, 1)
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.plot([1e-5, 1], [1e-5, 1], ls='--', color='gray')
+        plt.subplots_adjust(bottom=0.18, left=0.18, top=0.96, right=0.96)
+        plt.legend(fontsize=8)
+
+        roc_curve_path = os.path.join(self.experiment_dir, 'roc_curve_single.pdf')
+        plt.savefig(roc_curve_path, bbox_inches='tight', dpi=300)
+        self.logger.info(f"Saved single target plot to {roc_curve_path}")
+        # plt.show()
+
+        # Save results
+        rows = []
+        for label, v in results.items():
+            row = {'Attack': label, 'Acc': np.round(v['Acc'], 2), 'AUC': np.round(v['AUC'], 2)}
+            for tfpr, tpr_at, prec_at in zip(v['FPRs'], v['TPRs'], v['Precs']):
+                row[f"TPR@{tfpr:.4f}%FPR"]  = np.round(tpr_at, 3)
+                row[f"Prec@{tfpr:.4f}%FPR"] = np.round(prec_at, 2)
+            rows.append(row)
+
+        df = pd.DataFrame(rows)
+        csv_path = os.path.join(self.experiment_dir, 'attack_results_single.csv')
+        df.to_csv(csv_path, index=False)
+        self.logger.info(f"Saved single target results to {csv_path}")
+
+    def _plot_leave_one_out(self, metric='auc'):
+        """
+        Evaluate attack performance using leave-one-out cross-validation.
+
+        In this mode, each shadow model serves as a target model once, with all other
+        shadow models used to compute attack statistics. This provides more robust
+        estimates of attack performance with uncertainty quantification.
+
+        The method:
+        1. Iterates through all shadow models as targets
+        2. For each target, runs all 5 attack variants
+        3. Computes metrics (AUC, accuracy, TPR@FPR) for each target
+        4. Aggregates results across targets (mean ± std)
+        5. Saves membership labels, attack scores, and threshold information
+
+        Args:
+            metric: Metric to use for evaluation ('auc' or 'acc')
+
+        Outputs:
+            - attack_results_leave_one_out_summary.csv: Aggregated metrics across targets
+            - membership_labels.npy: Ground truth membership labels [M, N]
+            - {attack_type}_scores_leave_one_out.npy: Attack scores for each variant [M, N]
+            - threshold_info_leave_one_out.csv: Per-target threshold information
+        """
+        self.logger.info("Running leave-one-out evaluation")
+        
+        # Load scores and keep_indices
+        scores_list = []
+        for i in range(self.num_shadow_models):
+            path = os.path.join(self.experiment_dir, f"model_{i}", "scores", "scores.npy")
+            if os.path.exists(path):
+                scores_list.append(np.load(path))
+            else:
+                self.logger.warning(f"No scores for model_{i}")
+        
+        if not scores_list:
+            raise RuntimeError("No score files found in any shadow model directories.")
+        
+        scores = np.stack(scores_list)  # shape (M, N, A)
+        keep_indices = np.array(self.keep_indices)[:len(scores_list)]  # shape (M, N)
+        M, N = keep_indices.shape
+        
+        self.logger.info(f"Leave-one-out: {M} models, {N} samples each")
+
+        # Get target FPRs from config
+        tfprs = self.config.get('attack', {}).get('target_fprs', [0.001])
+        if not isinstance(tfprs, (list, tuple, np.ndarray)):
+            tfprs = [tfprs]
+
+        # Initialize storage for results across all target models
+        all_results = {
+            'LiRA (online)': {'AUCs': [], 'Accs': [], 'FPRs': [], 'TPRs': [], 'Precs': []},
+            'LiRA (online, fixed var)': {'AUCs': [], 'Accs': [], 'FPRs': [], 'TPRs': [], 'Precs': []},
+            'LiRA (offline)': {'AUCs': [], 'Accs': [], 'FPRs': [], 'TPRs': [], 'Precs': []},
+            'LiRA (offline, fixed var)': {'AUCs': [], 'Accs': [], 'FPRs': [], 'TPRs': [], 'Precs': []},
+            'Global threshold': {'AUCs': [], 'Accs': [], 'FPRs': [], 'TPRs': [], 'Precs': []}
+        }
+
+        # Storage for hard membership labels and attack scores (each attack produces different types of scores)
+        membership_labels = np.zeros((M, N), dtype=bool)  # M_models x N_samples
+        attack_scores = {
+            'LiRA (online)': np.zeros((M, N)),           # likelihood ratios
+            'LiRA (online, fixed var)': np.zeros((M, N)),  # likelihood ratios
+            'LiRA (offline)': np.zeros((M, N)),          # log probabilities
+            'LiRA (offline, fixed var)': np.zeros((M, N)),  # log probabilities
+            'Global threshold': np.zeros((M, N))         # raw scores
+        }
+        
+        # Storage for threshold information per target FPR
+        threshold_info = []
+
+        # Leave-one-out loop
+        for target_idx in range(M):
+            self.logger.info(f"Evaluating target model {target_idx}/{M-1}")
+            
+            # Split: all other models as training, current model as target
+            train_indices = [i for i in range(M) if i != target_idx]
+            train_keep = keep_indices[train_indices]
+            train_scores = scores[train_indices]
+            test_keep = keep_indices[target_idx:target_idx+1]
+            test_scores = scores[target_idx:target_idx+1]
+            
+            # Store hard labels for this target model
+            membership_labels[target_idx] = keep_indices[target_idx]
+
+            # Attack definitions for this target
+            attacks = [
+                ('LiRA (online)', lambda: self.generate_ours(train_keep, train_scores, test_keep, test_scores, fix_variance=False)),
+                ('LiRA (online, fixed var)', lambda: self.generate_ours(train_keep, train_scores, test_keep, test_scores, fix_variance=True)),
+                ('LiRA (offline)', lambda: self.generate_ours_offline(train_keep, train_scores, test_keep, test_scores, fix_variance=False)),
+                ('LiRA (offline, fixed var)', lambda: self.generate_ours_offline(train_keep, train_scores, test_keep, test_scores, fix_variance=True)),
+                ('Global threshold', lambda: self.generate_global(train_keep, train_scores, test_keep, test_scores))
+            ]
+            
+            for attack_name, attack_fn in attacks:
+                preds, ans = attack_fn()
+                
+                # Store attack scores with "higher = member" semantics
+                # All attack functions return scores where "lower = member", so negate to flip
+                attack_scores[attack_name][target_idx] = -np.array(preds)
+
+                # Compute ROC metrics
+                fpr, tpr, auc_v, acc_v, thresholds = self.sweep(np.array(preds), np.array(ans, dtype=bool))
+                
+                # Store results
+                all_results[attack_name]['AUCs'].append(auc_v * 100)
+                all_results[attack_name]['Accs'].append(acc_v * 100)
+
+                # Compute TPR and precision at target FPRs
+                for tfpr in tfprs:
+                    idx = np.where(fpr <= tfpr)[0]
+                    if idx.size > 0:
+                        tpr_at = float(tpr[idx[-1]])
+                        actual_fpr = float(fpr[idx[-1]])
+                        threshold = float(thresholds[idx[-1]])
+                        prec = (self.prior * tpr_at) / (self.prior * tpr_at + (1 - self.prior) * actual_fpr + 1e-30)
+                    else:
+                        tpr_at = 0.0
+                        actual_fpr = 0.0
+                        threshold = 0.0
+                        prec = 0.0
+
+                    all_results[attack_name]['FPRs'].append(tfpr * 100)
+                    all_results[attack_name]['TPRs'].append(tpr_at * 100)
+                    all_results[attack_name]['Precs'].append(prec * 100)
+
+                    # Store threshold info for all attacks
+                    threshold_info.append({
+                        'attack': attack_name,
+                        'target_model': target_idx,
+                        'target_fpr': tfpr,
+                        'actual_fpr': actual_fpr,
+                        'threshold': threshold,
+                        'tpr': tpr_at,
+                        'precision': prec
+                    })
+
+        # Compute statistics across all target models
+        self.logger.info("\n" + "="*80)
+        self.logger.info("LEAVE-ONE-OUT RESULTS (Mean ± Std across target models)")
+        self.logger.info("="*80)
+
+        summary_results = []
+        for attack_name, results in all_results.items():
+            auc_mean = np.mean(results['AUCs'])
+            auc_std = np.std(results['AUCs'], ddof=1)
+            acc_mean = np.mean(results['Accs'])
+            acc_std = np.std(results['Accs'], ddof=1)
+
+            row = {
+                'Attack': attack_name,
+                'AUC Mean': np.round(auc_mean, 2),
+                'AUC Std': np.round(auc_std, 2),
+                'Acc Mean': np.round(acc_mean, 2),
+                'Acc Std': np.round(acc_std, 2)
+            }
+
+            log_msg = f"{attack_name}: AUC={auc_mean:.2f}±{auc_std:.2f}, Acc={acc_mean:.2f}±{acc_std:.2f}"
+
+            # Group FPRs, TPRs, and Precs by target FPR value
+            unique_fprs = sorted(set(results['FPRs']))
+            for tfpr in unique_fprs:
+                # Find all indices for this target FPR
+                indices = [i for i, fpr in enumerate(results['FPRs']) if fpr == tfpr]
+                
+                # Extract TPRs and Precs for this target FPR
+                tprs_for_fpr = [results['TPRs'][i] for i in indices]
+                precs_for_fpr = [results['Precs'][i] for i in indices]
+                
+                tpr_mean = np.mean(tprs_for_fpr)
+                tpr_std = np.std(tprs_for_fpr, ddof=1)
+                prec_mean = np.mean(precs_for_fpr)
+                prec_std = np.std(precs_for_fpr, ddof=1)
+
+                row[f"TPR@{tfpr:.4f}%FPR Mean"] = np.round(tpr_mean, 3)
+                row[f"TPR@{tfpr:.4f}%FPR Std"] = np.round(tpr_std, 3)
+                row[f"Prec@{tfpr:.4f}%FPR Mean"] = np.round(prec_mean, 2)
+                row[f"Prec@{tfpr:.4f}%FPR Std"] = np.round(prec_std, 2)
+
+                log_msg += f", TPR@{tfpr:.4f}%FPR={tpr_mean:.4f}±{tpr_std:.4f}"
+                log_msg += f", Prec@{tfpr:.4f}%FPR={prec_mean:.2f}±{prec_std:.2f}"
+
+            self.logger.info(log_msg)
+            summary_results.append(row)
+
+        # Save summary results
+        summary_df = pd.DataFrame(summary_results)
+        summary_csv_path = os.path.join(self.experiment_dir, 'attack_results_leave_one_out_summary.csv')
+        summary_df.to_csv(summary_csv_path, index=False)
+        self.logger.info(f"Saved leave-one-out summary to {summary_csv_path}")
+
+        # Save hard membership labels
+        membership_labels_path = os.path.join(self.experiment_dir, 'membership_labels.npy')
+        np.save(membership_labels_path, membership_labels)
+        self.logger.info(f"Saved hard labels (shape {membership_labels.shape}) to {membership_labels_path}")
+
+        # Save attack scores with simple, clear names
+        score_type_map = {
+            'LiRA (online)': 'online_scores',
+            'LiRA (online, fixed var)': 'online_fixed_scores',
+            'LiRA (offline)': 'offline_scores',
+            'LiRA (offline, fixed var)': 'offline_fixed_scores',
+            'Global threshold': 'global_scores'
+        }
+        
+        for attack_name, score_array in attack_scores.items():
+            score_filename = score_type_map[attack_name]
+            score_path = os.path.join(self.experiment_dir, f'{score_filename}_leave_one_out.npy')
+            np.save(score_path, score_array)
+            self.logger.info(f"Saved {attack_name} scores (shape {score_array.shape}) to {score_path}")
+
+        # Save threshold information as CSV (now includes all attacks)
+        threshold_df = pd.DataFrame(threshold_info)
+        threshold_csv_path = os.path.join(self.experiment_dir, 'threshold_info_leave_one_out.csv')
+        threshold_df.to_csv(threshold_csv_path, index=False)
+        self.logger.info(f"Saved threshold information to {threshold_csv_path}")
+
+        self.logger.info("="*80)
+        self.logger.info("Leave-one-out evaluation completed!")
+        self.logger.info("="*80)
+
+    # --- helper to compute ROC metrics ---
+    def sweep(self, score, truth):
+        """
+        Compute ROC curve metrics.
+
+        Note: Attack scores have "lower = more likely member" semantics, so we negate them.
+
+        Args:
+            score: Attack scores (lower = more likely member)
+            truth: Ground truth membership labels (boolean)
+
+        Returns:
+            tuple: (fpr, tpr, auc, acc, thresholds) where:
+                - fpr: False positive rates
+                - tpr: True positive rates
+                - auc: Area under the ROC curve
+                - acc: Maximum accuracy
+                - thresholds: Decision thresholds
+        """
+        # Negate scores because attacks return "lower = member" but metrics expects "higher = member"
+        fpr, tpr, thresholds, auc_score, accuracy = compute_roc_metrics(-score, truth)
+        return fpr, tpr, auc_score, accuracy, thresholds
+
+    # --- attack definitions ---
+    def generate_ours(self, keep, scores, check_keep, check_scores, fix_variance=False):
+        """
+        LiRA online attack using both in-distribution and out-of-distribution statistics.
+
+        This is the main LiRA attack that uses:
+        - In-distribution: Statistics from models where sample was in training set
+        - Out-of-distribution: Statistics from models where sample was not in training set
+
+        Args:
+            keep: Boolean array indicating training membership for training models [M_train, N]
+            scores: Membership scores from training models [M_train, N, A]
+            check_keep: Boolean array for target model(s) [M_target, N]
+            check_scores: Scores from target model(s) [M_target, N, A]
+            fix_variance: If True, use global variance; if False, use per-sample variance
+
+        Returns:
+            tuple: (predictions, answers) where:
+                - predictions: Attack scores (lower = more likely member)
+                - answers: Ground truth labels
+        """
+        N = scores.shape[1]
+        dat_in  = [scores[keep[:,j], j]   for j in range(N)]
+        dat_out = [scores[~keep[:,j], j]  for j in range(N)]
+        in_size  = min(map(len, dat_in))
+        out_size = min(map(len, dat_out))
+        dat_in   = np.array([x[:in_size]  for x in dat_in])
+        dat_out  = np.array([x[:out_size] for x in dat_out])
+
+        mu_in  = np.median(dat_in,  axis=1)
+        mu_out = np.median(dat_out, axis=1)
+        if fix_variance:
+            sigma_in  = np.std(dat_in)
+            sigma_out = np.std(dat_in)
+        else:
+            sigma_in  = np.std(dat_in,  axis=1)
+            sigma_out = np.std(dat_out, axis=1)
+
+        preds, ans = [], []
+        for mask, sc in zip(check_keep, check_scores):
+            pin  = -scipy.stats.norm.logpdf(sc, mu_in,  sigma_in + 1e-30)
+            pout = -scipy.stats.norm.logpdf(sc, mu_out, sigma_out + 1e-30)
+            score   = pin - pout
+            preds.extend(score.mean(1))
+            ans.extend(mask)
+        return preds, ans
+
+    def generate_ours_offline(self, keep, scores, check_keep, check_scores, fix_variance=False):
+        """
+        LiRA offline attack using only out-of-distribution statistics.
+
+        This variant assumes the attacker only knows the distribution of scores for
+        non-members (more realistic threat model).
+
+        Args:
+            keep: Boolean array indicating training membership for training models [M_train, N]
+            scores: Membership scores from training models [M_train, N, A]
+            check_keep: Boolean array for target model(s) [M_target, N]
+            check_scores: Scores from target model(s) [M_target, N, A]
+            fix_variance: If True, use global variance; if False, use per-sample variance
+
+        Returns:
+            tuple: (predictions, answers) where:
+                - predictions: Log probabilities (lower = more likely member)
+                - answers: Ground truth labels
+        """
+        N = scores.shape[1]
+        dat_out = [scores[~keep[:,j], j] for j in range(N)]
+        out_size = min(map(len, dat_out))
+        dat_out = np.array([x[:out_size] for x in dat_out])
+
+        mu_out = np.median(dat_out, axis=1)
+        if fix_variance:
+            sigma = np.std(dat_out)
+        else:
+            sigma = np.std(dat_out, axis=1)
+
+        preds, ans = [], []
+        for mask, sc in zip(check_keep, check_scores):
+            score = scipy.stats.norm.logpdf(sc, mu_out, sigma + 1e-30)
+            preds.extend(score.mean(1))
+            ans.extend(mask)
+        return preds, ans
+
+    def generate_global(self, keep, scores, check_keep, check_scores):
+        """
+        Global threshold baseline attack.
+
+        This simple baseline uses a global threshold on the raw membership scores
+        without considering shadow model statistics.
+
+        Args:
+            keep: Boolean array indicating training membership (unused in this variant)
+            scores: Membership scores from training models (unused in this variant)
+            check_keep: Boolean array for target model(s) [M_target, N]
+            check_scores: Scores from target model(s) [M_target, N, A]
+
+        Returns:
+            tuple: (predictions, answers) where:
+                - predictions: Negative mean scores (lower = more likely member)
+                - answers: Ground truth labels
+        """
+        preds, ans = [], []
+        for mask, sc in zip(check_keep, check_scores):
+            preds.extend((-sc).mean(1))
+            ans.extend(mask)
+        return preds, ans
+    

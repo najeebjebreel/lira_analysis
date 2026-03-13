@@ -1,0 +1,37 @@
+seed: 42
+use_cuda: true
+dataset:
+  name: purchase
+  num_classes: 100
+  data_dir: data
+  pkeep: 0.5
+train_data_augmentation: []
+model:
+  architecture: fcn
+  input_dim: 600
+  hidden_dims:
+  - 1024
+  - 512
+  drop_rate: 0.0
+  activation: tanh
+  pretrained: false
+training:
+  num_shadow_models: 256
+  start_shadow_model_idx: 0
+  end_shadow_model_idx: 9
+  epochs: 1
+  batch_size: 128
+  num_workers: 4
+  optimizer: sgd
+  learning_rate: 0.01
+  weight_decay: 0.0005
+  momentum: 0.9
+  lr_scheduler: cosine
+  save_step: 101
+  save_models: true
+  early_stopping: true
+  patience: 20
+  resume: false
+experiment:
+  log_level: info
+  checkpoint_dir: experiments/purchase/fcn/purchase100_baseline

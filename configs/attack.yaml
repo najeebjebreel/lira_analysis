@@ -1,0 +1,38 @@
+
+# Attack configuration
+attack:
+  method: [lira]  # Options: lira, rmia, attackr, all. LiRA is the only implemented attack right now.
+
+  # Evaluation mode options:
+  # - 'single': Original mode using ntest models as targets (default)
+  # - 'leave_one_out': Evaluate using each model as target, report mean±std
+  # - 'both': Run both evaluation modes
+  evaluation_mode: 'both'  
+
+  compute_logits: true  # Whether to compute logits for the attack
+  compute_scores: true  # Whether to compute scores for the attack
+  perform_attack: true  # Whether to perform the attack
+  
+  # Number of test models (only used when evaluation_mode='single' or 'both')
+  ntest: 1
+
+  # Metric to display in plots ('auc' or 'acc')
+  plot_metric: 'auc'
+  target_fprs: [0.00001, 0.001]  # Target false positive rates for the attack
+  prior: 0.5  # Prior probability of membership
+  target_model: best  # Options: epoch, best
+  
+
+# INFERENCE augmentations for LiRA (deterministic, different from training)
+inference_data_augmentations:
+  mode: 'lira_aug'
+  aug: 18   # (0 | 2 | 18 | 50)
+  
+
+# Experiment configuration
+experiment:
+  log_level: info
+  deterministic: true  # Match training-time seeding for reproducible attack reruns
+  checkpoint_dir: null  # Must be set via --override or benchmark manifest (e.g., experiments/cifar10/resnet18/seed1)
+  overwrite_logits: true  # Whether to overwrite logits
+  overwrite_scores: true  # Whether to overwrite scores

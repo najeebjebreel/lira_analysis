@@ -1,0 +1,25 @@
+attack:
+  method:
+  - lira
+  evaluation_mode: both
+  compute_logits: true
+  compute_scores: true
+  perform_attack: true
+  ntest: 1
+  plot_metric: auc
+  target_fprs:
+  - 1.0e-05
+  - 0.001
+  prior: 0.5
+  target_model: best
+inference_data_augmentations:
+  mode: lira_aug
+  aug: 0
+experiment:
+  log_level: info
+  checkpoint_dir: experiments/purchase/fcn/purchase100_baseline
+  overwrite_logits: false
+  overwrite_scores: false
+training:
+  epochs: 1
+  end_shadow_model_idx: 9

@@ -1,0 +1,31 @@
+include README.md
+include LICENSE
+include ARTIFACT.md
+include OUTPUTS.md
+include RESULTS_INDEX.md
+include requirements.txt
+include requirements-lock.txt
+include environment.yml
+include export_code_snapshot.py
+
+recursive-include attacks *.py
+recursive-include utils *.py
+recursive-include comprehensive_analysis *.py
+recursive-include configs *.yaml
+recursive-include scripts *.py
+recursive-include tests *.py
+
+prune .github
+prune build
+prune data
+prune experiments
+prune paper
+prune configs/generated
+prune comprehensive_analysis/analysis_results
+prune comprehensive_analysis/figures
+prune comprehensive_analysis/figures_rank_stability
+prune comprehensive_analysis/latex_rank_stability
+prune comprehensive_analysis/tables
+
+global-exclude __pycache__
+global-exclude *.py[cod]

@@ -1,0 +1,27 @@
+figure: 8
+variant: likelihood_ratio
+description: Sample IN/OUT likelihood-ratio distributions across benchmark runs.
+sample_idx: 21
+single_sample: true
+share_xlim: true
+labels_file: membership_labels.npy
+score_file: likelihood_ratios_online_leave_one_out.npy
+out: comprehensive_analysis/figures/sample_inout_ratio.pdf
+source_availability: external_to_this_snapshot
+provenance_note: >
+  These panel paths come from the original figure-generation notebook and are
+  recorded here to make the experiment mapping explicit. The rendered PDF is
+  checked in, but the raw experiment directories are not bundled in this repo snapshot.
+experiments_root: null
+usage_note: >
+  Pass --experiments-root to comprehensive_analysis/plot_benchmark_distribution.py
+  to resolve the relative panel paths below against the external benchmark tree.
+panels:
+  - title: CRP+FLP
+    path: cifar10/resnet18/baseline_weak
+  - title: Baseline
+    path: cifar10/resnet18/baseline
+  - title: AOF
+    path: cifar10/resnet18/aof
+  - title: AOF+TL
+    path: cifar10/efficientnetv2_rw_s/aof+tl

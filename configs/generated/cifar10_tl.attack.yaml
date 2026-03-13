@@ -1,0 +1,26 @@
+attack:
+  method:
+  - lira
+  evaluation_mode: both
+  compute_logits: true
+  compute_scores: true
+  perform_attack: true
+  ntest: 1
+  plot_metric: auc
+  target_fprs:
+  - 1.0e-05
+  - 0.001
+  prior: 0.5
+  target_model: best
+inference_data_augmentations:
+  mode: lira_aug
+  aug: 18
+experiment:
+  log_level: info
+  checkpoint_dir: experiments/cifar10/efficientnetv2_rw_s/cifar10_tl
+  overwrite_logits: false
+  overwrite_scores: false
+trclearaining:
+  epochs: 1
+training:
+  end_shadow_model_idx: 9

@@ -1,0 +1,242 @@
+# CLI command reference for the LiRA pipeline
+#
+# Run from: /mnt/d/mona/lira_analysis
+#
+# Notes:
+# - These commands assume execution from a Linux shell (WSL or native Linux).
+# - Benchmark commands reproduce the named Table 1 rows end-to-end.
+# - Figures 1-7 can be regenerated from the current snapshot plus the
+#   checked-in CIFAR-10 seed runs.
+# - Figure 8 uses explicit manifests; its raw benchmark directories are
+#   external to this snapshot.
+
+
+# =============================================================================
+# 0. Environment setup
+# =============================================================================
+
+cd /path/to/lira_analysis
+
+# Option A: fresh venv
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install .
+
+# Option B: pinned reproduction environment (exact package versions)
+conda env create -f environment.yml
+conda activate lira-repro
+
+# List all available benchmark IDs
+python scripts/run_benchmark.py --list
+
+
+# =============================================================================
+# 1. Phase 1 — Train shadow models
+# =============================================================================
+#
+# Trains num_shadow_models shadow models defined in the config and saves each
+# to experiments/<dataset>/<arch>/<timestamp>/model_<i>/.
+# Outputs: keep_indices.npy, model_<i>/best_model.pth, model_<i>/metrics.csv,
+#          shadow_metrics_aggregate.csv, train_log.log, train_config.yaml
+
+# Standard run (all shadow models, config defaults)
+python train.py --config configs/train_image.yaml
+
+# Fine-tune from ImageNet-pretrained weights
+python train.py --config configs/finetune.yaml
+
+# Override individual config keys at the command line
+# Use experiment.run_name to get a readable directory instead of a timestamp
+python train.py --config configs/train_image.yaml \
+  --override seed=1 experiment.run_name=seed1
+
+# Train only a range of models (e.g. models 0–63 on one machine,
+# 64–127 on another — all must share the same keep_indices.npy)
+python train.py --config configs/train_image.yaml \
+  --override training.start_shadow_model_idx=0 \
+             training.end_shadow_model_idx=63
+
+# Resume interrupted training
+python train.py --config configs/train_image.yaml \
+  --override training.resume=true \
+             experiment.checkpoint_dir=experiments/cifar10/resnet18/2025-01-01_1200
+
+
+# =============================================================================
+# 2. Phase 2 — LiRA attack (logits → scores → ROC)
+# =============================================================================
+#
+# Loads shadow model checkpoints, runs inference with LiRA augmentations,
+# computes per-model scores, evaluates all attack variants, and saves ROC outputs.
+# Outputs: online_scores_leave_one_out.npy, membership_labels.npy,
+#          roc_curve_single.pdf, attack_results_single.csv,
+#          attack_results_leave_one_out_summary.csv,
+#          threshold_info_leave_one_out.csv, attack_log.log
+
+# Standard run (attack.yaml must point to a completed train directory)
+python attack.py --config configs/attack.yaml
+
+# Point to a specific experiment directory on the fly
+python attack.py --config configs/attack.yaml \
+  --override experiment.checkpoint_dir=experiments/cifar10/resnet18/seed1
+
+# Skip logit generation (already done) — only redo scores and ROC
+python attack.py --config configs/attack.yaml \
+  --override attack.compute_logits=false
+
+# Skip logit and score generation — only redo the ROC evaluation
+python attack.py --config configs/attack.yaml \
+  --override attack.compute_logits=false \
+             attack.compute_scores=false
+
+# Force recomputation of cached logits and scores
+python attack.py --config configs/attack.yaml \
+  --override experiment.overwrite_logits=true \
+             experiment.overwrite_scores=true
+
+# Run only leave-one-out evaluation (no single-target mode)
+python attack.py --config configs/attack.yaml \
+  --override attack.evaluation_mode=leave_one_out
+
+
+# =============================================================================
+# 3. Phase 3 — Per-run post-analysis
+# =============================================================================
+#
+# Computes two-mode (target / shadow) TPR@FPR, PPV at multiple priors,
+# per-sample vulnerability counts, vulnerability rankings, and image grids.
+# Outputs: analysis_results/<dataset>/<arch>/<run>/
+#   per_model_metrics_two_modes.csv, summary_statistics_two_modes.csv,
+#   samples_vulnerability_ranked_online_shadow_<tag>.csv,
+#   samples_highly_vulnerable_online_shadow_<tag>.csv,
+#   top9_vulnerable_online_shadow_<tag>.png,
+#   summary_<mode>_prior<tag>.tex
+
+python comprehensive_analysis/run_analysis.py \
+  --exp-path experiments/cifar10/resnet18/seed1 \
+  --target-fprs 0.00001 0.001 \
+  --priors 0.01 0.1 0.5
+
+# Skip image grid generation (useful on headless machines)
+python comprehensive_analysis/run_analysis.py \
+  --exp-path experiments/cifar10/resnet18/seed1 \
+  --skip-visualization
+
+# Custom output root (default: comprehensive_analysis/)
+python comprehensive_analysis/run_analysis.py \
+  --exp-path experiments/cifar10/resnet18/seed1 \
+  --out-root /tmp/analysis_out
+
+
+# =============================================================================
+# 4. Phase 4 — Cross-run reproducibility and rank stability
+# =============================================================================
+#
+# Requires Phase 3 outputs from all 12 baseline seeds and 4 variant runs.
+# Generates Jaccard / intersection / union panels, TP-support heatmaps,
+# rank-stability figures, and LaTeX tables.
+# Outputs: analysis_results/figures/, analysis_results/tables/
+
+# Full run (all panels + heatmaps + rank stability, uses default paths)
+python comprehensive_analysis/reproducibility_analysis.py
+
+# Custom analysis roots
+python comprehensive_analysis/reproducibility_analysis.py \
+  --analysis-root analysis_results/cifar10/resnet18 \
+  --arch-analysis-root analysis_results/cifar10/wrn28-2/seed42
+
+# Skip individual sections
+python comprehensive_analysis/reproducibility_analysis.py --skip-heatmaps
+python comprehensive_analysis/reproducibility_analysis.py --skip-rank
+python comprehensive_analysis/reproducibility_analysis.py --skip-threshold-panels
+
+
+# =============================================================================
+# 5. Phase 5 — Paper figure scripts
+# =============================================================================
+
+# Figure 1 — threshold distribution boxplots
+python comprehensive_analysis/threshold_distribution.py
+
+# Figure 4 — collect per-run top-vulnerable grids (assemble panel manually)
+python comprehensive_analysis/compose_top_vulnerable.py
+
+# Figure 7 — loss ratio vs TPR scatter
+python comprehensive_analysis/loss_ratio_tpr.py
+
+# Figure 8 — benchmark score/ratio distribution
+# (requires raw experiment directories referenced in the manifests)
+python comprehensive_analysis/plot_benchmark_distribution.py \
+  --config configs/figure_panels/figure8_scores.yaml
+python comprehensive_analysis/plot_benchmark_distribution.py \
+  --config configs/figure_panels/figure8_ratios.yaml
+
+# Figures 2, 3, 5, 6, 9, 10, 12 — produced by reproducibility_analysis.py (Phase 4 above)
+
+# Figure 11 (appendix) — manual assembly
+# Step 1: generate top-16 grids for each seed
+for i in 1 2 3; do
+  python comprehensive_analysis/run_analysis.py \
+    --exp-path experiments/cifar10/resnet18/seed${i} \
+    --target-fprs 0.00001 0.001 --top-k 16 --nrow 4
+done
+# Step 2: arrange the six PNGs in a 2x3 grid (rows=FPR, columns=seed) manually or via LaTeX
+
+
+# =============================================================================
+# 6. Compound — end-to-end via benchmark manifests (Table 1 rows)
+# =============================================================================
+#
+# Each benchmark manifest encodes the exact train + attack + analysis config
+# for one paper result row. Preferred over manual phase-by-phase execution.
+#
+# Skip-detection markers:
+#   train    -> <exp_dir>/train_config.yaml
+#   attack   -> <exp_dir>/attack_results_leave_one_out_summary.csv
+#   analysis -> analysis_results/.../<run>/summary_statistics_two_modes.csv
+
+# Full run (all three stages)
+python scripts/run_benchmark.py --benchmark cifar10_baseline
+python scripts/run_benchmark.py --benchmark cifar10_aof
+python scripts/run_benchmark.py --benchmark cifar10_tl
+python scripts/run_benchmark.py --benchmark cifar100_baseline
+python scripts/run_benchmark.py --benchmark cifar100_aof
+python scripts/run_benchmark.py --benchmark cifar100_tl
+python scripts/run_benchmark.py --benchmark gtsrb_baseline
+python scripts/run_benchmark.py --benchmark gtsrb_tl
+python scripts/run_benchmark.py --benchmark purchase100_baseline
+python scripts/run_benchmark.py --benchmark purchase100_aof
+
+# Dry-run: print commands without executing
+python scripts/run_benchmark.py --benchmark cifar10_baseline --dry-run
+
+# Resume: skip stages whose output markers already exist
+python scripts/run_benchmark.py --benchmark cifar10_baseline --skip-existing
+
+# Run only specific stages
+python scripts/run_benchmark.py --benchmark cifar10_baseline --stages attack analysis
+python scripts/run_benchmark.py --benchmark cifar10_baseline --stages analysis
+
+
+# =============================================================================
+# 7. Reproduce all checked-in CIFAR-10 seed analyses (Figures 1–6)
+# =============================================================================
+#
+# These per-run analysis outputs are consumed by threshold_distribution.py
+# and reproducibility_analysis.py.
+
+for i in $(seq 1 12); do
+  python comprehensive_analysis/run_analysis.py \
+    --exp-path "experiments/cifar10/resnet18/seed${i}"
+done
+
+
+# =============================================================================
+# 8. Inspection utilities
+# =============================================================================
+
+python scripts/run_benchmark.py --list
+
+cat RESULTS_INDEX.md
+cat ARTIFACT-APPENDIX.md

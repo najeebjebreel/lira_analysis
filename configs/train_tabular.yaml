@@ -1,0 +1,44 @@
+# This file contains unified settings for tabular datasets used in LiRA attacks
+
+seed: 42
+use_cuda: true
+
+dataset:
+  name: purchase # Options: purchase, texas, locations 
+  num_classes: 100 
+  data_dir: data
+  pkeep: 0.5
+
+train_data_augmentation: []
+
+model:
+  architecture: fcn
+  input_dim: 600 
+  hidden_dims: [1024, 512] 
+  drop_rate: 0.0
+  activation: tanh
+  pretrained: false
+
+training:
+  num_shadow_models: 256
+  start_shadow_model_idx: 0
+  end_shadow_model_idx: 255
+  epochs: 20
+  batch_size: 128
+  num_workers: 4
+  learning_rate: 0.01
+  weight_decay: 5e-4
+  momentum: 0.9
+  lr_scheduler: cosine
+  lr_step_size: 30
+  save_step: 10
+  save_models: true
+  lr_gamma: 0.1
+  early_stopping: true
+  patience: 20
+  resume: false
+
+experiment:
+  log_level: info
+  checkpoint_dir: null  # Set to an existing dir to resume; otherwise a new dir is created
+  run_name: null  # Named run dir, e.g. seed1. Overrides timestamp fallback when set.
