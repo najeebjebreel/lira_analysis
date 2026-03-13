@@ -18,7 +18,7 @@ target-data threshold calibration, and balanced membership priors.
 **Main Findings:**
 - AoF and TL defenses reduce LiRA success while maintaining model utility
 - Shadow-calibrated thresholds and realistic priors substantially lower attack precision
-- Membership predictions are unstable; reproducibility requires support thresholding
+- Thresholded membership predictions are highly unstable; Vulnerability ranking based on LiRA scores is more stable.
 
 
 ## Installation
