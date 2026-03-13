@@ -4,8 +4,7 @@ This repository provides the **official implementation** of the paper
 **["Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions"](https://arxiv.org/abs/2603.07567)**
 (Jebreel, Khalil, Sánchez, Domingo-Ferrer).
 
-We show that prior work often overestimated attack success by using overconfident models,
-target-data threshold calibration, and balanced membership priors.
+We show that prior work often overestimated attack success by relying on overconfident models, target-data threshold calibration, and balanced membership priors, while overlooking reproducibility across runs and training variations.
 
 ## Overview
 
@@ -13,12 +12,12 @@ target-data threshold calibration, and balanced membership priors.
 - Evaluation under **anti-overfitting** (AoF) and **transfer-learning** (TL) settings
 - **Shadow-only threshold calibration** and precision under skewed priors (π ≤ 10%)
 - **Per-sample reproducibility analysis** across architectures and configurations
-- Comprehensive implementation of 5 LiRA variants across 4 datasets and 10 benchmarks
+- Comprehensive implementation of LiRA variants across 4 datasets and 10 benchmarks
 
 **Main Findings:**
 - AoF and TL defenses reduce LiRA success while maintaining model utility
 - Shadow-calibrated thresholds and realistic priors substantially lower attack precision
-- Membership predictions are unstable; reproducibility requires support thresholding
+- Thresholded membership predictions are highly unstable; vulnerability ranking based on LiRA scores is substantially more stable
 
 
 ## Installation
