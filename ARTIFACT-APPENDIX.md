@@ -15,7 +15,7 @@ Requested Badges:
 
 Najeeb Jebreel, Mona Khalil, David Sánchez, and Josep Domingo-Ferrer,
 "Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions",
-*Proceedings on Privacy Enhancing Technologies (PoPETs)*, 2026.
+Accepted to *Proceedings on Privacy Enhancing Technologies (PoPETs)*, 2026.
 Preprint: https://arxiv.org/abs/2603.07567
 
 ### Artifact Summary
