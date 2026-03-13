@@ -2,9 +2,10 @@
 
 This repository provides the **official implementation** of the paper
 **["Revisiting the LiRA Membership Inference Attack Under Realistic Assumptions"](https://arxiv.org/abs/2603.07567)**
-(Jebreel, Khalil, Sánchez, Domingo-Ferrer).
+(Jebreel, Khalil, Sánchez, Domingo-Ferrer — PoPETs 2026).
 
-We show that prior work often overestimated attack success by relying on overconfident models, target-data threshold calibration, and balanced membership priors, while overlooking reproducibility across runs and training variations.
+We show that prior work often overestimated attack success by using overconfident models,
+target-data threshold calibration, and balanced membership priors.
 
 ## Overview
 
@@ -12,41 +13,53 @@ We show that prior work often overestimated attack success by relying on overcon
 - Evaluation under **anti-overfitting** (AoF) and **transfer-learning** (TL) settings
 - **Shadow-only threshold calibration** and precision under skewed priors (π ≤ 10%)
 - **Per-sample reproducibility analysis** across architectures and configurations
-- Comprehensive implementation of LiRA variants across 4 datasets and 10 benchmarks
+- Comprehensive implementation of 5 LiRA variants across 4 datasets and 10 benchmarks
 
 **Main Findings:**
 - AoF and TL defenses reduce LiRA success while maintaining model utility
-- Shadow-calibrated thresholds and realistic priors substantially lower attack precision for AoF and TL models.
-- Thresholded membership predictions are highly unstable; vulnerability ranking based on LiRA scores is substantially more stable
+- Shadow-calibrated thresholds and realistic priors substantially lower attack precision
+- Membership predictions are unstable; reproducibility requires support thresholding
 
 
 ## Installation
 
-Recommended environment:
+**Option A — Conda (recommended):**
 
-```bash
-conda create -n lira python=3.11
-conda activate lira
-pip install .
-```
-
-
-Pinned reproduction environment:
+Pinned reproduction environment (matches the paper exactly):
 
 ```bash
 conda env create -f environment.yml
 conda activate lira-repro
 ```
 
+Quick development install:
+
+```bash
+conda create -n lira python=3.11
+conda activate lira
+pip install .          # or: pip install .[dev]
+```
+
 Notes:
 - Python 3.10+ is required.
 - The default configs favor deterministic reruns for paper reproduction.
 
-Optional dev extras:
+**Option B — Docker (requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)):**
 
 ```bash
-pip install .[dev]
+# Build once (~10–15 min, ~6 GB)
+docker build -t lira-analysis:main .
+
+# Launch an interactive shell (data dirs are bind-mounted)
+docker run --gpus all --rm -it \
+    -v $(pwd)/data:/workspace/data \
+    -v $(pwd)/experiments:/workspace/experiments \
+    -v $(pwd)/analysis_results:/workspace/analysis_results \
+    lira-analysis:main bash
 ```
+
+All `python` commands below work unchanged inside the container.
+Outputs written to the mounted directories persist on the host after the container exits.
 
 
 ## Pipeline
@@ -194,11 +207,12 @@ Training ran sequentially on a single GPU; Phase 2 used `aug=18` for all image b
 
 Times marked † are from the paper (Appendix C, full early-stopping run on RTX 4080);
 times marked ★ are extrapolated from 1-epoch timing runs on the same machine.
+★† = upper bound; FCN converges fast, early stopping reduces this substantially.
 
 | Benchmark | Arch | Epochs | Phase 1 training | Phase 2 attack | Total |
 |---|---|---|---|---|---|
-| `purchase100_baseline` | FCN (tabular) | 100 | ≤ ~16 h  | < 30 min  | ≤ ~16 h |
-| `purchase100_aof` | FCN (tabular) | 100 | ≤ ~15 h  | < 30 min  | ≤ ~15 h |
+| `purchase100_baseline` | FCN (tabular) | 100 | ≤ ~16 h ★† | < 30 min ★ | ≤ ~16 h |
+| `purchase100_aof` | FCN (tabular) | 100 | ≤ ~15 h ★† | < 30 min ★ | ≤ ~15 h |
 | `cifar10_baseline`, `cifar10_aof` | ResNet-18 | 100 | **~29 h** † (≈ 7 min/model) | **~4–5 h** † (15–17% overhead) | **~33–34 h** |
 | `cifar100_baseline`, `cifar100_aof` | WRN-28-2 | 100 | **~33 h** † (≈ 8 min/model) | **~5–6 h** † (15–17% overhead) | **~38–39 h** |
 | `cifar10_tl`, `cifar100_tl`, `gtsrb_tl` | EfficientNetV2 (pretrained) | 5 | ~4–8 h | ~3–5 h | ~8–13 h |

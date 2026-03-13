@@ -52,6 +52,8 @@ The Purchase-100 tabular benchmarks can run on CPU but benefit from a GPU.
 
 ### Software Requirements
 
+**Option A — Conda (recommended for bare-metal Linux/WSL2):**
+
 | Component | Version used |
 |---|---|
 | OS | Ubuntu 20.04 LTS (WSL2) |
@@ -72,8 +74,18 @@ The Purchase-100 tabular benchmarks can run on CPU but benefit from a GPU.
 All versions are pinned in `requirements-lock.txt`.  The full pinned environment is reproducible
 via `environment.yml` (see [Set up the environment](#set-up-the-environment)).
 
-The artifact uses a Conda environment with pinned
-`requirements-lock.txt` as the build environment.  
+**Option B — Docker (alternative; requires NVIDIA Container Toolkit):**
+
+| Component | Version used |
+|---|---|
+| Base image | `nvidia/cuda:12.6.3-runtime-ubuntu22.04` |
+| Miniconda | `Miniconda3-py311_24.11.1-0` |
+| Python / packages | same as Option A (installed from `environment.yml`) |
+| NVIDIA Container Toolkit | ≥ 1.14 (see [install guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)) |
+
+A `Dockerfile` is provided at the repository root.  It installs Miniconda and the pinned `environment.yml`
+on top of the CUDA 12.6 base image.  Runtime data directories (`data/`, `experiments/`,
+`analysis_results/`) are bind-mounted at run time so artefacts survive container exit.
 
 ### Estimated Time and Storage Consumption
 
@@ -105,6 +117,8 @@ commit tag will be collected by the artifact chairs.
 
 ### Set up the Environment
 
+**Option A — Conda (bare-metal Linux/WSL2):**
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/najeebjebreel/lira_analysis.git
@@ -123,6 +137,35 @@ mv features_labels.npy data/purchase/
 
 The `environment.yml` installs Python 3.11 and all packages from `requirements-lock.txt` in a
 single step.  After activation, all `python *.py` invocations are available.
+
+---
+
+**Option B — Docker:**
+
+Prerequisites: Docker Engine + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html).
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/najeebjebreel/lira_analysis.git
+cd lira_analysis
+
+# 2. Build the image (one-time; ~10–15 min, ~6 GB)
+docker build -t lira-analysis:main .
+
+# 3. Stage the Purchase-100 dataset (if needed — see Option A step 3 above)
+
+# 4. Launch an interactive shell inside the container
+docker run --gpus all --rm -it \
+    -v $(pwd)/data:/workspace/data \
+    -v $(pwd)/experiments:/workspace/experiments \
+    -v $(pwd)/analysis_results:/workspace/analysis_results \
+    lira-analysis:main bash
+```
+
+Once inside the container, all `python` commands below work unchanged
+(the entry point activates the `lira-repro` conda environment automatically).
+All outputs written to `/workspace/data`, `/workspace/experiments`, and
+`/workspace/analysis_results` persist on the host via the bind mounts.
 
 ### Testing the Environment
 
@@ -509,7 +552,9 @@ The table below summarises reproducibility status for each paper item, followed 
   `cifar10_tl` (~8–13 h) and then `run_analysis.py` on the resulting experiment directory.
 
 - **Tested on WSL2 / Ubuntu 20.04 only.** The artifact should work on any Linux system with CUDA,
-  but has not been tested on macOS or native Windows.
+  but has not been tested on macOS or native Windows.  The Docker image has been built and
+  tested on the same WSL2 host; reviewers on other Linux distributions can use it as a
+  portable alternative to bare-metal Conda setup.
 
 ---
 
