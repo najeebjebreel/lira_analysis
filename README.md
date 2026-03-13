@@ -25,7 +25,7 @@ target-data threshold calibration, and balanced membership priors.
 
 **Option A — Conda (recommended):**
 
-Pinned reproduction environment (matches the paper exactly):
+Pinned reproduction environment:
 
 ```bash
 conda env create -f environment.yml
@@ -44,7 +44,7 @@ Notes:
 - Python 3.10+ is required.
 - The default configs favor deterministic reruns for paper reproduction.
 
-**Option B — Docker (requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)):**
+**Option B — Docker:**
 
 ```bash
 # Build once (~10–15 min, ~6 GB)
