@@ -1,0 +1,28 @@
+# Runtime data directories (mounted at run time)
+data/
+experiments/
+analysis_results/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+.pytest_cache/
+
+# Version control
+.git/
+.gitignore
+
+# Generated configs
+configs/generated/
+
+# Logs
+*.log
+logs/
+
+# Editor / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
