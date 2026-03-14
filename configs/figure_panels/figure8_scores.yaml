@@ -6,7 +6,7 @@ single_sample: true
 share_xlim: true
 labels_file: membership_labels.npy
 score_file: global_scores_leave_one_out.npy
-out: comprehensive_analysis/figures/sample_inout_score.pdf
+out: analysis_results/figures/sample_inout_score.pdf
 source_availability: external_to_this_snapshot
 provenance_note: >
   These panel paths come from the original figure-generation notebook and are
