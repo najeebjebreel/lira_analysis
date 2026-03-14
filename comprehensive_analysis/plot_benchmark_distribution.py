@@ -61,7 +61,7 @@ def resolve_config_paths(
 
     panel_base = experiments_root if experiments_root is not None else config_path.parent
     panels = [(item["title"], _resolve_path(item["path"], panel_base)) for item in config["panels"]]
-    out_path = _resolve_path(config.get("out", repo_root / "comprehensive_analysis" / "figures" / "sample_inout_score.pdf"), repo_root)
+    out_path = _resolve_path(config.get("out", repo_root / "analysis_results" / "figures" / "sample_inout_score.pdf"), repo_root)
     return panels, out_path
 
 
@@ -180,7 +180,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-idx", type=int, default=21)
     parser.add_argument("--labels-file", default="membership_labels.npy")
     parser.add_argument("--score-file", default="global_scores_leave_one_out.npy")
-    parser.add_argument("--out", type=Path, default=script_dir / "figures" / "sample_inout_score.pdf")
+    parser.add_argument("--out", type=Path, default=script_dir.parent / "analysis_results" / "figures" / "sample_inout_score.pdf")
     parser.add_argument("--all-samples", action="store_true", help="Aggregate all samples instead of plotting one sample index")
     parser.add_argument("--no-share-xlim", action="store_true")
     return parser.parse_args()
