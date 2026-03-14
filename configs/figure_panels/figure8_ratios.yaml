@@ -6,7 +6,7 @@ single_sample: true
 share_xlim: true
 labels_file: membership_labels.npy
 score_file: likelihood_ratios_online_leave_one_out.npy
-out: comprehensive_analysis/figures/sample_inout_ratio.pdf
+out: analysis_results/figures/sample_inout_ratio.pdf
 source_availability: external_to_this_snapshot
 provenance_note: >
   These panel paths come from the original figure-generation notebook and are
