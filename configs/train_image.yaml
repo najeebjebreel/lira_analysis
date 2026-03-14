@@ -38,7 +38,7 @@ training:
   num_shadow_models: 256 # Number of shadow models to train
   start_shadow_model_idx: 0
   end_shadow_model_idx: 255
-  epochs: 1  # Number of training epochs
+  epochs: 100  # Number of training epochs
   batch_size: 256  # Batch size for training
   num_workers: 4  # Number of workers for data loading
   optimizer: sgd
