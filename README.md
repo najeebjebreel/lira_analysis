@@ -13,7 +13,7 @@ target-data threshold calibration, and balanced membership priors.
 - Evaluation under **anti-overfitting** (AoF) and **transfer-learning** (TL) settings
 - **Shadow-only threshold calibration** and precision under skewed priors (π ≤ 10%)
 - **Per-sample reproducibility analysis** across architectures and configurations
-- Comprehensive implementation of 5 LiRA variants across 4 datasets and 10 benchmarks
+- Comprehensive implementation of LiRA variants across 4 datasets and 10 benchmarks
 
 **Main Findings:**
 - AoF and TL defenses reduce LiRA success while maintaining model utility
