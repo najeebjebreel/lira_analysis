@@ -325,6 +325,10 @@ For the expected output path index, see [RESULTS_INDEX.md](./RESULTS_INDEX.md).
 For the complete CLI command reference, see [cli_commands.txt](./cli_commands.txt).
 
 
+## Future Work
+
+- **Multi-GPU training:** Shadow-model training currently runs on a single GPU. A natural extension would be to parallelise it across multiple GPUs on a single node via `torch.nn.DataParallel` or `DistributedDataParallel`, which would significantly reduce Phase 1 wall-clock time. This is planned as a future improvement and is outside the scope of the current artifact.
+
 ## Citation
 
 ```bibtex
