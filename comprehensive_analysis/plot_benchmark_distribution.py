@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+# NOTE: This script requires pre-aggregated multi-run CSV inputs that are NOT produced by a single
+# benchmark run. See ARTIFACT-APPENDIX.md (Section: Reproducibility Analysis) for instructions on
+# how to generate these inputs before running this script.
+
 import argparse
 from pathlib import Path
 

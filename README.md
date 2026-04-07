@@ -43,6 +43,7 @@ pip install .          # or: pip install .[dev]
 Notes:
 - Python 3.10+ is required.
 - The default configs favor deterministic reruns for paper reproduction.
+- On servers or environments where the open file descriptor limit has not been raised automatically (e.g., non-Slurm setups), run `ulimit -n 65536` in your shell before executing any pipeline commands.
 
 **Option B — Docker:**
 

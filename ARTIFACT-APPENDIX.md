@@ -175,6 +175,8 @@ All outputs written to `/workspace/data`, `/workspace/experiments`, and
 python scripts/run_benchmark.py --benchmark cifar10_baseline --dry-run
 ```
 
+Note: the configs/generated/ directory does not exist on a fresh clone; it is created automatically at runtime when a benchmark is first executed.
+
 Expected output: three `[run]` lines (train → attack → analysis) with no errors:
 
 ```

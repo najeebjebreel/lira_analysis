@@ -48,7 +48,15 @@ def load_attack_runtime_config(
     apply_overrides(attack_config, override_args)
     validate_config(attack_config, ["experiment.checkpoint_dir"])
 
-    experiment_dir = Path(attack_config["experiment"]["checkpoint_dir"])
+    checkpoint_dir = attack_config["experiment"]["checkpoint_dir"]
+    if checkpoint_dir is None:
+        raise ValueError(
+            "checkpoint_dir is not set. When invoking attack.py directly, you must pass "
+            "--override experiment.checkpoint_dir=<path/to/experiment>. "
+            "The recommended way to run the pipeline is via scripts/run_benchmark.py, "
+            "which sets this automatically."
+        )
+    experiment_dir = Path(checkpoint_dir)
     train_config_path = experiment_dir / "train_config.yaml"
     if not train_config_path.exists():
         raise FileNotFoundError(f"Missing training config: {train_config_path}")

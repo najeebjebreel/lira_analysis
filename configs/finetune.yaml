@@ -25,6 +25,7 @@ train_data_augmentation:
 
 # Model configuration
 model:
+  # Base template — architecture and other fields are overridden by each TL benchmark manifest
   architecture: resnet18  # Options: resnet18, resnet34, resnet50, wrn28-2, wrn28-10, efficientnetv2_rw_s, fcn, etc.
   input_channels: 3  # Number of input channels (RGB images)
   cifar_stem: false  # Set to false for pretrained models (use ImageNet stem)
